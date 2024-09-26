@@ -1,0 +1,46 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+.container {
+    width: 80%;
+    margin: auto;
+    overflow: hidden;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+table, th, td {
+    border: 1px solid #ddd;
+}
+th, td {
+    padding: 10px;
+    text-align: left;
+}
+th {
+    background-color: #0e1a35;
+    color: white;
+}
+tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
+h2 {
+    color: #0e1a35;
+}
+
+.export-buttons {
+    display: flex;
+    flex-wrap: wrap; 
+    justify-content: center; 
+    gap: 15px; 
+    margin-top: 20px; 
+    margin-bottom: 20px; 
+}
+
+.export-btn {
+    margin: 0; 
+}
