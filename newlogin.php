@@ -55,7 +55,7 @@
                         &check; Subscribe to our newsletter for exclusive offers<br>
                     </p>
                     <div class="mb-3">
-                        <a href="newform.php" class="btn btn-primary">Register Now!</a>
+                        <a href="register.php" class="btn btn-primary">Register Now!</a>
                     </div>
                 </section>
             </article>

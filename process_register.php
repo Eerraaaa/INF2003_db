@@ -6,34 +6,32 @@ error_reporting(E_ALL);
 
 require 'lib/connection.php';
 
-function sanitize_input($data)
-{
+// Function to sanitize input
+function sanitize_input($data) {
     return htmlspecialchars(stripslashes(trim($data)));
 }
 
 // Function to handle form submission
 function handle_form_submission($conn) {
-    $required_fields = ['fname', 'email', 'phone_number', 'pass', 'confirm_password'];
-    $errors = []; // Initialize an empty array to hold error messages
-    $missing_fields = false; // Flag to indicate if any field is missing
+    $required_fields = ['username', 'userType', 'fname', 'email', 'phone_number', 'pass', 'confirm_password'];
+    $errors = [];
 
+    // Check if any required field is missing
     foreach ($required_fields as $field) {
         if (empty($_POST[$field])) {
-            $missing_fields = true; // At least one field is missing
-            break; // No need to check further, one missing field is enough
+            $errors[] = "Please fill in all required fields.";
+            break;
         }
     }
 
-    // If any required field is missing, add a single error message
-    if ($missing_fields) {
-        $errors[] = "Required fields not filled.";
-    }
-
     // Sanitize and validate input
+    $username = sanitize_input($_POST['username']);
+    $userType = sanitize_input($_POST['userType']);
     $f_name = sanitize_input($_POST['fname']);
+    $l_name = sanitize_input($_POST['lname']);
     $email = sanitize_input($_POST['email']);
     $phone_number = sanitize_input($_POST['phone_number']);
-    $password = $_POST['pass']; // Corrected from 'password' to 'pass'
+    $password = $_POST['pass'];
     $confirm_password = $_POST['confirm_password'];
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -41,7 +39,7 @@ function handle_form_submission($conn) {
     }
 
     if (strlen($phone_number) != 8 || !ctype_digit($phone_number)) {
-        $errors[] = 'Phone number not correct, type 8 digits only.';
+        $errors[] = 'Phone number must be exactly 8 digits.';
     }
 
     if ($password !== $confirm_password) {
@@ -49,27 +47,28 @@ function handle_form_submission($conn) {
     }
 
     // Check for unique email
-    $stmt = $conn->prepare("SELECT email FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT email FROM Users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $stmt->store_result();
     if ($stmt->num_rows > 0) {
-        $errors[] = 'Existing email, please use another.';
+        $errors[] = 'Email already exists. Please use another.';
     }
 
-    // If there are any errors, redirect to error page with errors
+    // If there are errors, redirect to the error page
     if (!empty($errors)) {
-        $_SESSION['form_errors'] = $errors; // Store the array of errors
+        $_SESSION['form_errors'] = $errors;
         header("Location: reg_error.php");
         exit();
     }
 
-    // Proceed with user registration if there are no errors
+    // Proceed with registration if no errors
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $conn->prepare("INSERT INTO users (f_name, email, phone_number, pass) VALUES (?, ?, ?, ?)");
-    $stmt->bind_param("ssss", $f_name, $email, $phone_number, $hashed_password);
+    $stmt = $conn->prepare("INSERT INTO users (username, email, password, userType, fname, lname, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssssss", $username, $email, $hashed_password, $userType, $f_name, $l_name, $phone_number);    
+
     if ($stmt->execute()) {
-        $_SESSION['success_message'] = 'Registration successful! Welcome to Bookhub, ' . $f_name . '!';
+        $_SESSION['success_message'] = 'Registration successful! Welcome, ' . $f_name . '!';
         header("Location: reg_success.php");
         exit();
     } else {

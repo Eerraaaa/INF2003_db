@@ -18,7 +18,7 @@ $email = sanitize_input($_POST['email'] ?? '');
 $password = $_POST['pwd'] ?? '';
 
 // Prepare a SQL statement for execution, preventing SQL injection
-$stmt = $conn->prepare("SELECT id, f_name, email, pass, is_admin FROM project.users WHERE email = ?");
+$stmt = $conn->prepare("SELECT userID, fname, email, password, userType FROM project.Users WHERE email = ?");
 // Bind the input email to the prepared statement as a parameter
 $stmt->bind_param("s", $email);
 // Execute the prepared statement
@@ -28,20 +28,17 @@ $result = $stmt->get_result();
 // Fetch the associative array from the result set
 $user = $result->fetch_assoc();
 
-if ($user && password_verify($password, $user['pass'])) {
+if ($user && password_verify($password, $user['password'])) {
     // Regenerate the session ID to prevent session fixation attacks
     session_regenerate_id(true);
     // Set session variables with user information
-    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['userID'] = $user['userID'];  // Use userID as per your database
     $_SESSION['user_email'] = $user['email'];
-    // Save first name in session for dynamic nav
-    $_SESSION['user_first_name'] = $user['f_name'];
-    // Store whether the user is an admin
-    $_SESSION['is_admin'] = $user['is_admin'];
+    $_SESSION['user_first_name'] = $user['fname']; // Changed to fname as per your database
+    $_SESSION['user_type'] = $user['userType']; // Adjusted to match your userType field
 
-
-     // Check if the user is an admin and redirect accordingly
-     if ($user['is_admin']) {
+    // Check if the user is an admin and redirect accordingly
+    if ($user['userType'] === 'admin') {  // Assuming userType is a string for admin
         header("Location: admin/home.php");
         exit();
     } else {

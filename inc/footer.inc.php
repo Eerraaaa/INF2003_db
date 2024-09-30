@@ -35,7 +35,7 @@
             <li><a class="nav-link text-white" href="/cart.php">My Cart</a></li>
           <?php else: ?>
             <li><a class="nav-link text-white" href="newlogin.php">Sign In</a></li>
-            <li><a class="nav-link text-white" href="form.php">Register</a></li>
+            <li><a class="nav-link text-white" href="register.php">Register</a></li>
           <?php endif; ?>
           </ul>
       </div>

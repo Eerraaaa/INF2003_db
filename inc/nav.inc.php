@@ -46,7 +46,7 @@ if (isset($_SESSION['user_id'])) {
                           <li class="account-dropdown">
                             <a href="#"><i class="fa fa-user"></i><span>Account</span></a>
                             <div class="account-dropdown-content">
-                                <a href="newform.php">Register</a>
+                                <a href="register.php">Register</a>
                                 <a href="newlogin.php">Login</a>
                             </div>
                           </li>

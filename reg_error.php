@@ -55,7 +55,7 @@ session_start();
             unset($_SESSION['form_errors']); // Clear the errors after displaying them
         }
         ?>
-        <a href="newform.php">Go Back</a>
+        <a href="register.php">Go Back</a>
     </div>
 </body>
 </html>
