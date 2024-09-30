@@ -13,7 +13,7 @@ function sanitize_input($data) {
 
 // Function to handle form submission
 function handle_form_submission($conn) {
-    $required_fields = ['username', 'userType', 'fname', 'email', 'phone_number', 'pass', 'confirm_password'];
+    $required_fields = ['username', 'email', 'pass', 'confirm_password', 'fname', 'userType', 'phone_number'];
     $errors = [];
 
     // Check if any required field is missing
@@ -26,10 +26,10 @@ function handle_form_submission($conn) {
 
     // Sanitize and validate input
     $username = sanitize_input($_POST['username']);
-    $userType = sanitize_input($_POST['userType']);
-    $f_name = sanitize_input($_POST['fname']);
-    $l_name = sanitize_input($_POST['lname']);
     $email = sanitize_input($_POST['email']);
+    $userType = sanitize_input($_POST['userType']);
+    $fname = sanitize_input($_POST['fname']);
+    $lname = sanitize_input($_POST['lname']);
     $phone_number = sanitize_input($_POST['phone_number']);
     $password = $_POST['pass'];
     $confirm_password = $_POST['confirm_password'];
@@ -64,11 +64,12 @@ function handle_form_submission($conn) {
 
     // Proceed with registration if no errors
     $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-    $stmt = $conn->prepare("INSERT INTO users (username, email, password, userType, fname, lname, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->bind_param("sssssss", $username, $email, $hashed_password, $userType, $f_name, $l_name, $phone_number);    
+    $stmt = $conn->prepare("INSERT INTO Users (username, email, password, userType, fname, lname, phone_number) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    $stmt->bind_param("sssssss", $username, $email, $hashed_password, $userType, $fname, $lname, $phone_number );    
 
     if ($stmt->execute()) {
-        $_SESSION['success_message'] = 'Registration successful! Welcome, ' . $f_name . '!';
+        $_SESSION['success_message'] = 'Registration successful! Welcome, ' . $username . '!';
+
         header("Location: reg_success.php");
         exit();
     } else {
