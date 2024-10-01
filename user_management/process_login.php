@@ -3,7 +3,7 @@
 session_start();
 
 // Include the database connection file
-require 'lib/connection.php';
+require '../lib/connection.php';
 
 // Function to sanitize user input for security
 function sanitize_input($data)
@@ -18,7 +18,7 @@ $email = sanitize_input($_POST['email'] ?? '');
 $password = $_POST['pwd'] ?? '';
 
 // Prepare a SQL statement for execution, preventing SQL injection
-$stmt = $conn->prepare("SELECT userID, fname, email, password, userType FROM project.Users WHERE email = ?");
+$stmt = $conn->prepare("SELECT userID, fname, email, password, userType FROM Users WHERE email = ?");
 // Bind the input email to the prepared statement as a parameter
 $stmt->bind_param("s", $email);
 // Execute the prepared statement
@@ -39,20 +39,23 @@ if ($user && password_verify($password, $user['password'])) {
 
     // Check if the user is an admin and redirect accordingly
     if ($user['userType'] === 'admin') {  // Assuming userType is a string for admin
-        header("Location: admin/home.php");
+        header("Location: ../admin/home.php");
         exit();
-    } else {
-        // Non-admin user redirection logic
-        if (!empty($_POST['redirect']) && $_POST['redirect'] == 'product' && !empty($_POST['product_id'])) {
-            header("Location: product.php?add_to_cart=" . intval($_POST['product_id']));
-        } else {
-            header("Location: user_dashboard.php");
-        }
+    } else if ($user['userType'] === 'agent') {
+        header("Location: ../agent/home.php");
+        exit();
+    } else if ($user['userType'] === 'buyer') {
+        header("Location: ../buyer/buyer_home.php");
+        exit();
+    } else if ($user['userType'] === 'seller') {
+        header("Location: ../seller/seller_home.php");
         exit();
     }
+
 } else {
     // If login failed, redirect back to the login page with an error message
     $_SESSION['error_message'] = "Login failed: Email or password is incorrect.";
     header("Location: newlogin.php");
     exit();
 }
+?>

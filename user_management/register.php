@@ -7,9 +7,9 @@
 <body>
   <?php
   session_start();
-  include 'lib/connection.php';
-  include "inc/headform.inc.php";
-  include "inc/nav.inc.php";
+  include '../lib/connection.php';
+  include "../inc/headform.inc.php";
+  include "../inc/nav.inc.php";
 
   ?>
 
@@ -82,7 +82,7 @@
       </form>
     </div>
   </main>
-  <script src="js/formscript.js"></script>
+  <script src="../js/formscript.js"></script>
 </body>
 
 </html>

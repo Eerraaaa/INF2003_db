@@ -5,10 +5,9 @@ if (isset($_GET['message']) && $_GET['message'] == 'adminlogout') {
     echo "<script>alert('Logout successful, Bye admin');</script>";
 }
 elseif (isset($_GET['message']) && $_GET['message'] == 'logout') {
-    echo "<script>alert('You have logged out. Thank you for visiting BookHub!');</script>";
+    echo "<script>alert('You have logged out. Thank you for visiting HDB Guru!');</script>";
 }
 ?>
-<link rel="shortcut icon" type="image/x-icon"  href="../img/favicon.png">
 <meta charset="utf-8">
 <link href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800" rel="stylesheet" type="text/css">
 <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"

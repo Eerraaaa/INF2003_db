@@ -1,15 +1,12 @@
 <?php
 include 'header.php';
-SESSION_START();
-
-if (!isset($_SESSION['is_admin']) || $_SESSION['is_admin'] != 1) {
-  header("location:newlogin.php");
-  exit; 
+session_start();
+if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
+    header("Location: unauthorized.php"); // Redirect to unauthorized access page
+    exit();
 }
 
 include 'lib/connection.php';
-$sql = "SELECT * FROM contact_submissions";
-$result = $conn->query($sql);
 ?>
 <!DOCTYPE html>
 <html lang="en">

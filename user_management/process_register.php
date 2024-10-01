@@ -4,7 +4,7 @@ session_start();
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-require 'lib/connection.php';
+require '../lib/connection.php';
 
 // Function to sanitize input
 function sanitize_input($data) {

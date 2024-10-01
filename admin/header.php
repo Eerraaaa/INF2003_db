@@ -1,6 +1,6 @@
 <?php
 include'lib/connection.php';
-$sql = "SELECT * FROM orders where status='pending'";
+$sql = "SELECT * FROM users ";
 $result = $conn -> query ($sql);
 
 ?>
@@ -46,30 +46,11 @@ $result = $conn -> query ($sql);
 	<div class="sidenav" id="sidenav">
 		<ul class="navbar-nav">
 		   <li class="nav-item">
-				<a class="nav-link d" href="home.php">Dashboard</a>
-			</li>
-            <li class="nav-item">
-				<a class="nav-link po" href="pending_orders.php">Order Status</a>
+				<a class="nav-link d" href="home.php">List of Agents</a>
 			</li>
 			<li class="nav-item">
-				<a class="nav-link ap" href="add_product.php">Add Product</a>
+				<a class="nav-link d" href="contactus_submissions.php">Contact Us Submissions</a>
 			</li>
-			<li class="nav-item">
-				<a class="nav-link vp" href="all_product.php">All Product</a>
-			</li>
-			
-			<li class="nav-item">
-				<a class="nav-link ao" href="all_orders.php">Delivered Order</a>
-			</li>
-            <li class="nav-item">
-                <a class="nav-link u" href="users.php">Users</a>
-            </li>
-			<li class="nav-item">
-                <a class="nav-link u" href="contactus_submissions.php">Contact Us Submissions</a>
-            </li>
-			<li class="nav-item">
-                <a class="nav-link u" href="report.php">Report</a>
-            </li>
 		</ul>
 	</div>
 	<?php

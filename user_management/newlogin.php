@@ -34,12 +34,12 @@
     }
 
     ?>
-    <?php include "inc/head.inc.php"; ?>
+    <?php include "../inc/head.inc.php"; ?>
     <title>Login</title>
 </head>
 
 <body>
-    <?php include "inc/nav.inc.php"; ?>
+    <?php include "../inc/nav.inc.php"; ?>
     <!-- Your provided HTML structure for the login page goes here -->
     <main class="container" style="padding-top: 250px;">
         <h1>Account</h1>
@@ -49,10 +49,6 @@
                     <h2> New here?</h2>
                     <p>
                         Registration is free and easy!<br>
-                        &check; Faster checkout<br>
-                        &check; Save multiple shipping addresses<br>
-                        &check; View, track orders and more<br>
-                        &check; Subscribe to our newsletter for exclusive offers<br>
                     </p>
                     <div class="mb-3">
                         <a href="register.php" class="btn btn-primary">Register Now!</a>
@@ -86,7 +82,6 @@
         </div>
     </main>
 
-    <?php include "inc/footer.inc.php"; ?>
 </body>
 
 </html>
