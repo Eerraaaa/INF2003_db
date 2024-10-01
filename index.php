@@ -1,331 +1,278 @@
 <!DOCTYPE html>
-    <html lang="en">
-        <head>
-        <?php
-            session_start(); // Start the session if not already started
+<html lang="en">
+<head>
+    <?php
+        session_start(); // Start the session if not already started
 
-            include "inc/headproduct.inc.php";
-            include 'lib/connection.php'; // Ensure you include your database connection here
+        include "inc/headproduct.inc.php";
+        include 'lib/connection.php'; // Ensure you include your database connection here
 
-            $isLoggedIn = isset($_SESSION['user_id']); // true if logged in, false otherwise
+        $isLoggedIn = isset($_SESSION['user_id']); // true if logged in, false otherwise
 
-            // Retrieve products to display
-            $sql = "SELECT * FROM product";
+        // Pagination setup
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $itemsPerPage = 50; // 50 records per page
+        $offset = ($page - 1) * $itemsPerPage;
 
-            // Check if the deal_category parameter is set and not empty
-            if (isset($_GET['deal_category']) && !empty($_GET['deal_category'])) {
-                $deal_category = $_GET['deal_category'];
-                // Modify the SQL query to filter products by the specified deal category
-                if (strpos($sql, 'WHERE') !== false) {
-                    $sql .= " AND deal_category = '$deal_category'";
-                } else {
-                    $sql .= " WHERE deal_category = '$deal_category'";
-                }
-            }
+        // Sorting setup
+        $sortBy = isset($_GET['sort']) ? $conn->real_escape_string($_GET['sort']) : 'newest';
 
-            // Check if the category parameter is set and not empty
-            if (isset($_GET['category']) && !empty($_GET['category'])) {
-                $category = $_GET['category'];
-                // Modify the SQL query to filter products by the specified category
-                if (strpos($sql, 'WHERE') !== false) {
-                    $sql .= " AND catagory = '$category'";
-                } else {
-                    $sql .= " WHERE catagory = '$category'";
-                }
+        // Capture the selected location (if any) from the URL
+        $selectedLocation = isset($_GET['deal_category']) ? $conn->real_escape_string($_GET['deal_category']) : '';
 
-            }
+        // Capture the search query (if any)
+        $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
+        // Determine the ORDER BY clause based on sorting selection
+        $orderByClause = "ORDER BY ";
+        switch ($sortBy) {
+            case 'price_low_high':
+                $orderByClause .= "p.resalePrice ASC";
+                break;
+            case 'price_high_low':
+                $orderByClause .= "p.resalePrice DESC";
+                break;
+            case 'oldest':
+                $orderByClause .= "p.transactionDate ASC";
+                break;
+            case 'newest':
+            default:
+                $orderByClause .= "p.transactionDate DESC";
+                break;
+        }
 
-            // Check if the search form has been submitted
-            if (isset($_POST['submit_search']) && !empty($_POST['search'])) {
-                // Retrieve the search term and sanitize it
-                $name = trim($_POST['search']);
-                // Prepared statement to prevent SQL injection
-                $stmt = $conn->prepare("SELECT * FROM product WHERE name LIKE CONCAT('%', ?, '%')");
-                $stmt->bind_param("s", $name);
-                $stmt->execute();
-                $result = $stmt->get_result();
-            } else {
-                $result = $conn->query($sql);
-            }
-
-                // Retrieve product details from the database
-                $product = [];
-                if ($productId) {
-                    $stmt = $conn->prepare("SELECT * FROM product WHERE id = ?");
-                    $stmt->bind_param("i", $productId);
-                    $stmt->execute();
-                    $result = $stmt->get_result();
-                    if ($result->num_rows > 0) {
-                        $product = $result->fetch_assoc();
-                    }
-                    $stmt->close();
-                }
-            ?>
-
-            <title>Products</title>
-            <link rel="stylesheet" href="css/product.css">
-            <script defer src="js/product.js"></script>
-        </head>
+        // Construct WHERE clause for search or location filtering
+        $whereClause = 'WHERE 1=1 '; // Default condition to always be true
         
-        <body>
-            <main class="product-container mt-3 mb-5">
-            <?php include "inc/searchnav.inc.php";?>
+        if (!empty($search)) {
+            // If search is provided, use search terms
+            $searchTerms = explode(' ', strtolower($search));
+            $searchClauses = [];
+            foreach ($searchTerms as $term) {
+                $searchClauses[] = "(LOWER(p.flatType) LIKE '%$term%' OR 
+                                    LOWER(l.streetName) LIKE '%$term%' OR 
+                                    LOWER(l.town) LIKE '%$term%' OR 
+                                    LOWER(l.block) LIKE '%$term%')";
+            }
+            $whereClause .= " AND (" . implode(' OR ', $searchClauses) . ")";
+        }
+        
+        // Apply location filtering if a location is selected
+        if (!empty($selectedLocation)) {
+            $whereClause .= " AND LOWER(l.town) = LOWER('$selectedLocation')";
+        }
 
-            
-                <div class="row mt-3">
-                    <div class="col-lg-2"></div>
-                    <div class="col-lg-10 title"><h2>Properties</h2></div>
+        // Query for property table with search or location, sorting, and pagination
+        $propertyQuery = "SELECT p.flatType, 
+                                CONCAT(l.streetName, ' Block ', l.block) AS locationName,
+                                p.resalePrice, 
+                                p.transactionDate 
+                        FROM Property p
+                        JOIN Location l ON p.locationID = l.locationID
+                        $whereClause
+                        $orderByClause
+                        LIMIT $itemsPerPage OFFSET $offset";
+        $propertyResult = $conn->query($propertyQuery);
+
+        if (!$propertyResult) {
+            die("Query failed: " . $conn->error);
+        }
+
+        // Get total number of properties
+        $totalQuery = "SELECT COUNT(*) as total 
+                    FROM Property p
+                    JOIN Location l ON p.locationID = l.locationID
+                    $whereClause";
+        $totalResult = $conn->query($totalQuery);
+        $totalProperties = $totalResult->fetch_assoc()['total'];
+        $totalPages = ceil($totalProperties / $itemsPerPage);
+
+        // Fetch all distinct locations from the database for the dynamic location list
+        $locationQuery = "SELECT DISTINCT town FROM Location ORDER BY town ASC";
+        $locationResult = $conn->query($locationQuery);
+    ?>
+
+    <title>Properties</title>
+    <link rel="stylesheet" href="css/product.css">
+    <script defer src="js/product.js"></script>
+</head>
+
+<body>
+    <main class="product-container mt-3 mb-5">
+        <?php include "inc/searchnav.inc.php"; ?>
+
+        <div class="row mt-3">
+            <div class="col-lg-2"></div>
+            <div class="col-lg-10 title"><h2>Properties</h2></div>
+        </div>
+
+        <!-- MAIN BODY -->
+        <div class="row">
+            <!-- SIDE BAR -->
+            <div class="col-lg-2 mt-3 side-bar">
+                <div class="Deals">
+                    <h4>Locations</h4>
+                    <ul>
+                    <?php
+                    // Display the dynamic list of locations
+                    if ($locationResult->num_rows > 0) {
+                        while ($row = $locationResult->fetch_assoc()) {
+                            $town = htmlspecialchars($row['town']);  // Sanitize output
+                            // Generate a link for each town/location
+                            echo "<li><a href='index.php?deal_category=" . urlencode($town) . "'>" . $town . "</a></li>";
+                        }
+                    } else {
+                        echo "<li>No locations available</li>";
+                    }
+                    ?>
+                    </ul>
+                </div>
+                <div class="category">
+                    <h4>Agents</h4>
+                    <ul>
+                        <li><a href="index.php?category=Agent Lee">Agent Lee</a></li>
+                    </ul>
+                </div>
+            </div>
+
+
+            <!-- MAIN BAR-->
+            <div class="col-sm-12 col-lg-10 mt-3 main-content">
+                <div class="filter-container">
+                    <ul class="grid-container">
+                        <li class="active"><i class="fa-sharp fa-solid fa-grip icon"></i></li>
+                        <li><i class="fa-sharp fa-solid fa-list icon"></i></li>
+                    </ul>
+                    <div class="drop-down">
+                        <label for="filter-type">Sort By:</label>
+                        <select class="filter-type" id="filter-type">
+                            <option value="newest" <?php echo $sortBy == 'newest' ? 'selected' : ''; ?>>Newest to Oldest</option>
+                            <option value="oldest" <?php echo $sortBy == 'oldest' ? 'selected' : ''; ?>>Oldest to Newest</option>
+                            <option value="price_low_high" <?php echo $sortBy == 'price_low_high' ? 'selected' : ''; ?>>Price: low to high</option>
+                            <option value="price_high_low" <?php echo $sortBy == 'price_high_low' ? 'selected' : ''; ?>>Price: high to low</option>
+                        </select>
+                    </div>
                 </div>
 
-
-                <!-- MAIN BODY -->
-                <div class="row">
-                    <!-- SIDE BAR -->
-                    <div class="col-lg-2 mt-3 side-bar">
-                        <div class="Deals">
-                            <h4>Locations</h4>
-                            <ul>
-                            <li><a href="product.php?deal_category=top_deal" class="deal-link" data-deal-category="top_deal">Ang Mo Kio</a></li>
-                            </ul>
-                        </div>
-                        <div class="category">
-                            <h4>Agents</h4>
-                            <ul>
-                                <li><a href="product.php?category=Fiction">Agent Lee</a></li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- MAIN BAR-->
-                    <div class="col-sm-12 col-lg-10 mt-3 main-content">
-                        <div class="filter-container">
-                            <ul class="grid-container">
-                                <li class="active"><i class="fa-sharp fa-solid fa-grip icon"></i></li>
-                                <li><i class="fa-sharp fa-solid fa-list icon"></i></li>
-                            </ul>
-                            <div class="drop-down">
-                                <label for="filter-type">Sort By:</label>
-                                <select class="filter-type" id="filter-type">
-                                    <option>Featured</option>
-                                    <option>Name A-Z</option>
-                                    <option>Name Z-A</option>
-                                    <option>Price: low to high</option>
-                                    <option>Price: high to low</option>
-                                    <option>Oldest to newest</option>
-                                    <option>Newest to Oldest</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                        <?php
-                        if ($result->num_rows > 0) {
-                            // output data of each row
-                            while($row = $result->fetch_assoc()) {
-                                ?>
-                                <div class="col-md-4 mb-5 item-grid">
-                                    <a class="item-description" href="productDetail.php?product_id=<?php echo $row['id']; ?>">
-                                        <img class="img-fluid mx-auto img-file" src="admin/product_img/<?php echo $row['imgname']; ?>" alt="">
-                                        <h6><?php echo $row['name']; ?></h6>
-                                        <p class="price">$<?php echo $row['Price']; ?></p>
-                                    </a>
-                                    <div class="star-container">
-                                    <?php
-                                        // Retrieve the rating value for the current product
-                                        $rating = $row['rating'];
-
-                                        // Loop through each star and determine whether to display solid or regular star icon
-                                        for ($i = 1; $i <= 5; $i++) {
-                                            // Determine the class for the star icon based on the rating value
-                                            $starClass = ($i <= $rating) ? 'fa-solid' : 'fa-regular';
-
-                                            // Output the star icon with the appropriate class
-                                            echo "<i class='fa-star $starClass' style='color: #FFD43B;'></i>";
-                                        }
-                                        ?>
-                                    </div>
-                                    
-                                    <ul class="button-container mt-3">
-                                        <li>
-                                            <button onclick="addToCart(<?php echo $row['id']; ?>)" class="btn" aria-label="cart">
-                                                <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i>
-                                            </button>
-                                        </li>
-                                        <li>
-                                            <button onclick="addToWishlist(<?php echo $row['id']; ?>)" class="btn" aria-label="wishlist">
-                                                <i class="fa-regular fa-heart" aria-hidden="true"></i>
-                                            </button>
-                                        </li>
-                                        <li>
-                                        <button class="btn" data-product-id="<?php echo $row['id']; ?>" aria-label="details" >
-                                            <i class="fa-solid fa-magnifying-glass-plus details-btn" aria-hidden="true"></i>
-                                        </button>
-                                        </li>
-                                    </ul>
-                                </div>
+                <!-- Property Listings Table -->
+                <div class="row mt-5">
+                    <div class="col-12">
+                        <h3>Recent Property Listings</h3>
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Flat Type</th>
+                                    <th>Location</th>
+                                    <th>Resale Price</th>
+                                    <th>Transaction Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
                                 <?php
-                                }
-                            } else {
-                                echo "<p>No products found.</p>";
-                            }
-                        ?>
-                        </div>
-                        <div class="item-list">
-                            <div class="row">
-                            <?php
-                            // Reset the pointer to the beginning of the result set
-                            $result->data_seek(0);
-                            
-                            if ($result->num_rows > 0) {
-                                // output data of each row
-                                while($row = $result->fetch_assoc()) {
-                                    ?>
-                                    <div class="col-12 mb-5 item-list-item">
-                                        <div class="row">
-                                            <div class="col-md-4 img-container">
-                                                <img class="img-fluid img-file" src="admin/product_img/<?php echo $row['imgname']; ?>" alt="">
-                                            </div>
-                                            <div class="col-md-8">
-                                                <div class="item-details-container">
-                                                    <h2><?php echo $row['name']; ?></h2>
-                                                    <p><?php echo $row['description']; ?></p>
-                                                    <p class="price">$<?php echo $row['Price']; ?></p>
-                                                    <ul class="button-container list">
-                                                        <li>
-                                                            <button onclick="addToCart(<?php echo $row['id']; ?>)" class="btn" aria-label="cart">
-                                                                <i class="fa-solid fa-cart-shopping" aria-hidden="true"></i> Add to Cart
-                                                            </button>
-                                                        </li>
-                                                        <li>
-                                                            <button onclick="addToWishlist(<?php echo $row['id']; ?>)" class="btn" aria-label="wishlist">
-                                                            <i class="fa-regular fa-heart" aria-hidden="true"></i> Add to Wishlist
-                                                            </button>
-                                                        </li>
-                                                        <li>
-                                                        <button class="btn" onclick="showProductOverlay(<?php echo $row['id']; ?>)" aria-label="details">
-                                                            <i class="fa-solid fa-magnifying-glass-plus details-btn" aria-hidden="true"></i> View Image
-                                                        </button>
-                                                        </li>
-                                                    </ul>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <?php
+                                if ($propertyResult->num_rows > 0) {
+                                    while($row = $propertyResult->fetch_assoc()) {
+                                        echo "<tr>";
+                                        echo "<td>" . htmlspecialchars($row['flatType']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($row['locationName']) . "</td>";
+                                        echo "<td>$" . number_format($row['resalePrice']) . "</td>";
+                                        echo "<td>" . htmlspecialchars($row['transactionDate']) . "</td>";
+                                        echo "</tr>";
                                     }
                                 } else {
-                                    echo "<p>No products found.</p>";
+                                    echo "<tr><td colspan='4'>No properties found</td></tr>";
                                 }
-                            ?>
-                            </div>
-                        </div>
-
-                        <div class="row page-container">
-                            <div class="col-xs-12 col-md-4 page-detail"><span>1 - 6 product(s) of 20</span></div>
-                            <div class="col-xs-12 col-md-8 page-list">
-                                <a href="#"><i class="fa-solid fa-chevron-left"></i><span>Previous</span></a>
-                                <span class="active">1</span>
-                                <a href="#"><span>2</span></a>
-                                <a href="#"><span>3</span></a>
-                                <a href="#"><span>Next</span><span class="arrow-right"><i class="fa-solid fa-chevron-right"></i></span></a>
-                            </div>
-                        </div>
+                                ?>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-            </main>
-            <div class="overlay" id="productOverlay" style="visibility: hidden;">
-                <div class="overlay-content">
-                    <i class="fa-solid fa-xmark" onclick="closeProductOverlay()"></i>
-                    <div>
-                        <div >
-                            <h1>null</h1>
-                            <img src="#" class="product-img img-fluid mx-auto">
-                        </div>  
+                <!-- Pagination -->
+                <div class="row page-container">
+                    <div class="col-xs-12 col-md-4 page-detail">
+                        <span><?php echo ($offset + 1) . " - " . min($offset + $itemsPerPage, $totalProperties) . " property(s) of " . $totalProperties; ?></span>
+                    </div>
+                    <div class="col-xs-12 col-md-8 page-list">
+                        <?php
+                        $pagesToShow = 5; // Number of page links to show
+                        $startPage = max($page - floor($pagesToShow / 2), 1);
+                        $endPage = min($startPage + $pagesToShow - 1, $totalPages);
+
+                        if ($startPage > 1) {
+                            echo "<a href='?page=1&sort=$sortBy'><span>First</span></a>";
+                            if ($startPage > 2) {
+                                echo "<span>...</span>";
+                            }
+                        }
+
+                        if ($page > 1) {
+                            echo "<a href='?page=" . ($page - 1) . "&sort=$sortBy'><i class='fa-solid fa-chevron-left'></i><span>Previous</span></a>";
+                        }
+
+                        for ($i = $startPage; $i <= $endPage; $i++) {
+                            if ($i == $page) {
+                                echo "<span class='active'>$i</span>";
+                            } else {
+                                echo "<a href='?page=$i&sort=$sortBy'><span>$i</span></a>";
+                            }
+                        }
+
+                        if ($page < $totalPages) {
+                            echo "<a href='?page=" . ($page + 1) . "&sort=$sortBy'><span>Next</span><span class='arrow-right'><i class='fa-solid fa-chevron-right'></i></span></a>";
+                        }
+
+                        if ($endPage < $totalPages) {
+                            if ($endPage < $totalPages - 1) {
+                                echo "<span>...</span>";
+                            }
+                            echo "<a href='?page=$totalPages&sort=$sortBy'><span>Last</span></a>";
+                        }
+                        ?>
                     </div>
                 </div>
-            </div> 
+            </div>
+        </div>
 
-            
-            <?php
-            include "inc/footer.inc.php";
-            ?> 
+    </main>
 
-            <script>
-                <?php
-                // Reset the pointer to the beginning of the result set
-                $result->data_seek(0);
+    <?php include "inc/footer.inc.php"; ?>
 
-                // Start JavaScript variable assignment
-                echo 'var productData = {};';
-                if ($result->num_rows > 0) {
-                    // Output data of each row as JavaScript variables
-                    while($row = $result->fetch_assoc()) {
-                        echo 'productData[' . $row['id'] . '] = {';
-                        echo 'name: "' . addslashes($row['name']) . '", ';
-                        echo 'imgname: "' . addslashes($row['imgname']) . '"';
-                        echo '};';
-                    }
-                }
-                ?>
+    <script>
+        // Function to update URL parameters by replacing all existing ones
+        function updateURLParameter(param, value, resetOthers = true) {
+            const url = new URL(window.location.href);
+            if (resetOthers) {
+                // Clear out all existing parameters except the new one
+                url.search = ''; 
+            }
+            url.searchParams.set(param, value);
+            window.history.replaceState({}, '', url);
+        }
 
-                var isLoggedIn = <?php echo json_encode($isLoggedIn); ?>;
-                function addToCart(productId) {
-                    if (isLoggedIn) {
-                        window.location.href = "add_to_cart.php?product_id=" + productId;
-                    } else {
-                        alert("Please login before adding items to your cart.");
-                        // Store the product ID in session via AJAX call or directly pass as URL parameter
-                        window.location.href = "../user_management/newlogin.php?redirect=product&product_id=" + productId;
-                    }
-                }
+        // Sorting functionality
+        document.getElementById('filter-type').addEventListener('change', function() {
+            updateURLParameter('sort', this.value, true); // Overwrite all parameters
+            location.reload();
+        });
 
-                function addToWishlist(productId) {
-                    if (isLoggedIn) {
-                        window.location.href = "add_to_wishlist.php?product_id=" + productId;
-                    } else {
-                        alert("Please login before adding items to your wishlist.");
-                        window.location.href = "../user_management/newlogin.php?redirect=product&product_id=" + productId;
-                    }
-                }
+        // Search functionality
+        document.querySelector('form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const searchTerm = document.querySelector('input[name="search"]').value;
+            updateURLParameter('search', searchTerm, true); // Overwrite all parameters
+            location.reload();
+        });
 
-                // Check if wishlist_exists session variable is set
-                <?php if(isset($_SESSION['wishlist_exists'])): ?>
-                    alert('This item is already in your wishlist.');
-                <?php
-                    // Unset the session variable after displaying the pop-up
-                    unset($_SESSION['wishlist_exists']);
-                ?>
-                <?php endif; ?>
-                
-                // JavaScript for updating URL parameters dynamically
-                function updateURLParameter(param, value) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set(param, value);
-                    window.history.replaceState({}, '', url);
-                }
+        // Handle clicking on location links
+        document.querySelectorAll('.deal-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const location = e.target.innerText; // Get the text of the clicked location
+                updateURLParameter('deal_category', location, true); // Overwrite all parameters with only location
+                location.reload(); // Reload the page with the new filter
+            });
+        });
 
-                // JavaScript to handle clicking on deal category links
-                const dealLinks = document.querySelectorAll('.deal-link');
-                dealLinks.forEach(link => {
-                    link.addEventListener('click', function (event) {
-                        const dealCategory = event.target.dataset.dealCategory;
-                        updateURLParameter('deal_category', dealCategory);
-                    });
-                });
-
-                function updateCategory(category) {
-                    updateURLParameter('category', category);
-                    // Optionally, you can reload the page after updating the URL
-                    // window.location.reload();
-                }
-
-                function updateURLParameter(param, value) {
-                    const url = new URL(window.location.href);
-                    url.searchParams.set(param, value);
-                    window.history.replaceState({}, '', url);
-                }
-
-            </script>
-        </body>
-    </html>
+    </script>
+</body>
+</html>
