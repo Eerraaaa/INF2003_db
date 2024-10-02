@@ -41,22 +41,31 @@
                 break;
         }
 
-        // Construct WHERE clause for search or location filtering
+       // Construct WHERE clause for search or location filtering
         $whereClause = 'WHERE 1=1 '; // Default condition to always be true
-        
+
         if (!empty($search)) {
-            // If search is provided, use search terms
             $searchTerms = explode(' ', strtolower($search));
             $searchClauses = [];
+            
             foreach ($searchTerms as $term) {
-                $searchClauses[] = "(LOWER(p.flatType) LIKE '%$term%' OR 
-                                    LOWER(l.streetName) LIKE '%$term%' OR 
-                                    LOWER(l.town) LIKE '%$term%' OR 
-                                    LOWER(l.block) LIKE '%$term%')";
+                $termClauses = [];
+                $termClauses[] = "LOWER(p.flatType) LIKE '%$term%'";
+                $termClauses[] = "LOWER(l.streetName) LIKE '%$term%'";
+                $termClauses[] = "LOWER(l.town) LIKE '%$term%'";
+                $termClauses[] = "LOWER(l.block) LIKE '%$term%'";
+                
+                // Check if the term is numeric (potential block number)
+                if (is_numeric($term)) {
+                    $termClauses[] = "l.block = '$term'";
+                }
+                
+                $searchClauses[] = "(" . implode(" OR ", $termClauses) . ")";
             }
-            $whereClause .= " AND (" . implode(' OR ', $searchClauses) . ")";
+            
+            $whereClause .= " AND (" . implode(" AND ", $searchClauses) . ")";
         }
-        
+
         // Apply location filtering if a location is selected
         if (!empty($selectedLocation)) {
             $whereClause .= " AND LOWER(l.town) = LOWER('$selectedLocation')";
@@ -64,7 +73,7 @@
 
         // Query for property table with search or location, sorting, and pagination
         $propertyQuery = "SELECT p.flatType, 
-                                CONCAT(l.streetName, ' Block ', l.block) AS locationName,
+                                CONCAT(l.town, ' ', l.streetName, ' Block ', l.block) AS locationName,
                                 p.resalePrice, 
                                 p.transactionDate 
                         FROM Property p
@@ -117,9 +126,9 @@
                     // Display the dynamic list of locations
                     if ($locationResult->num_rows > 0) {
                         while ($row = $locationResult->fetch_assoc()) {
-                            $town = htmlspecialchars($row['town']);  // Sanitize output
-                            // Generate a link for each town/location
-                            echo "<li><a href='index.php?deal_category=" . urlencode($town) . "'>" . $town . "</a></li>";
+                            $town = htmlspecialchars($row['town']);
+                            $isActive = ($selectedLocation == $town) ? 'class="active"' : '';
+                            echo "<li><a href='index.php?deal_category=" . urlencode($town) . "&sort=$sortBy' $isActive>" . $town . "</a></li>";
                         }
                     } else {
                         echo "<li>No locations available</li>";
@@ -134,7 +143,6 @@
                     </ul>
                 </div>
             </div>
-
 
             <!-- MAIN BAR-->
             <div class="col-sm-12 col-lg-10 mt-3 main-content">
@@ -198,34 +206,40 @@
                         $startPage = max($page - floor($pagesToShow / 2), 1);
                         $endPage = min($startPage + $pagesToShow - 1, $totalPages);
 
+                        $urlParams = http_build_query([
+                            'sort' => $sortBy,
+                            'deal_category' => $selectedLocation,
+                            'search' => $search
+                        ]);
+
                         if ($startPage > 1) {
-                            echo "<a href='?page=1&sort=$sortBy'><span>First</span></a>";
+                            echo "<a href='?page=1&$urlParams'><span>First</span></a>";
                             if ($startPage > 2) {
                                 echo "<span>...</span>";
                             }
                         }
 
                         if ($page > 1) {
-                            echo "<a href='?page=" . ($page - 1) . "&sort=$sortBy'><i class='fa-solid fa-chevron-left'></i><span>Previous</span></a>";
+                            echo "<a href='?page=" . ($page - 1) . "&$urlParams'><i class='fa-solid fa-chevron-left'></i><span>Previous</span></a>";
                         }
 
                         for ($i = $startPage; $i <= $endPage; $i++) {
                             if ($i == $page) {
                                 echo "<span class='active'>$i</span>";
                             } else {
-                                echo "<a href='?page=$i&sort=$sortBy'><span>$i</span></a>";
+                                echo "<a href='?page=$i&$urlParams'><span>$i</span></a>";
                             }
                         }
 
                         if ($page < $totalPages) {
-                            echo "<a href='?page=" . ($page + 1) . "&sort=$sortBy'><span>Next</span><span class='arrow-right'><i class='fa-solid fa-chevron-right'></i></span></a>";
+                            echo "<a href='?page=" . ($page + 1) . "&$urlParams'><span>Next</span><span class='arrow-right'><i class='fa-solid fa-chevron-right'></i></span></a>";
                         }
 
                         if ($endPage < $totalPages) {
                             if ($endPage < $totalPages - 1) {
                                 echo "<span>...</span>";
                             }
-                            echo "<a href='?page=$totalPages&sort=$sortBy'><span>Last</span></a>";
+                            echo "<a href='?page=$totalPages&$urlParams'><span>Last</span></a>";
                         }
                         ?>
                     </div>
@@ -238,20 +252,19 @@
     <?php include "inc/footer.inc.php"; ?>
 
     <script>
-        // Function to update URL parameters by replacing all existing ones
-        function updateURLParameter(param, value, resetOthers = true) {
+        // Function to update URL parameters while maintaining others
+        function updateURLParameter(param, value) {
             const url = new URL(window.location.href);
-            if (resetOthers) {
-                // Clear out all existing parameters except the new one
-                url.search = ''; 
-            }
             url.searchParams.set(param, value);
+            if (param !== 'page') {
+                url.searchParams.set('page', '1'); // Reset to first page when changing filters
+            }
             window.history.replaceState({}, '', url);
         }
 
         // Sorting functionality
         document.getElementById('filter-type').addEventListener('change', function() {
-            updateURLParameter('sort', this.value, true); // Overwrite all parameters
+            updateURLParameter('sort', this.value);
             location.reload();
         });
 
@@ -259,20 +272,23 @@
         document.querySelector('form').addEventListener('submit', function(e) {
             e.preventDefault();
             const searchTerm = document.querySelector('input[name="search"]').value;
-            updateURLParameter('search', searchTerm, true); // Overwrite all parameters
+            updateURLParameter('search', searchTerm);
+            // Clear the location parameter when searching
+            const url = new URL(window.location.href);
+            url.searchParams.delete('deal_category');
+            window.history.replaceState({}, '', url);
             location.reload();
         });
 
         // Handle clicking on location links
-        document.querySelectorAll('.deal-link').forEach(link => {
+        document.querySelectorAll('.Deals a').forEach(link => {
             link.addEventListener('click', function(e) {
                 e.preventDefault();
-                const location = e.target.innerText; // Get the text of the clicked location
-                updateURLParameter('deal_category', location, true); // Overwrite all parameters with only location
-                location.reload(); // Reload the page with the new filter
+                const location = this.textContent.trim();
+                const sort = document.getElementById('filter-type').value;
+                window.location.href = `index.php?deal_category=${encodeURIComponent(location)}&sort=${sort}`;
             });
         });
-
     </script>
 </body>
 </html>
