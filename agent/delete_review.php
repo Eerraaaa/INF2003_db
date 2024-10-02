@@ -27,7 +27,28 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'agent') {
     exit();
 }
 include '../lib/connection.php';
+include "inc/agentnav.inc.php";
+
+if (isset($_GET['id'])) {
+    $id = $_GET['id'];
+
+    // Use a prepared statement to delete the record
+    $sql = "DELETE FROM agentReview WHERE agentReviewID = ?";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("i", $id); // 'i' indicates that it's an integer
+
+    if ($stmt->execute()) {
+        // Set success message
+        $_SESSION['success_message'] = "Review successfully deleted!";
+    } else {
+        echo "Error deleting record: " . $stmt->error;
+    }
+
+    $stmt->close();
+    $conn->close();
+
+    // Redirect back to read_review.php
+    header("Location: read_review.php");
+    exit();
+}
 ?>
-    <title>Agent Home</title>
-</head>
-<body>
