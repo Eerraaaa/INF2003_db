@@ -25,21 +25,7 @@ $result = $conn -> query ($sql);
 	<section class="header" id="header">
 		<i class="fas fa-bars fixed" onclick="openside()"></i>
 		<div class="line-fixed">Admin Panel</div>
-		<?php
-		$c=0;
-          if (mysqli_num_rows($result) > 0) {
-            // output data of each row
-            while($row = mysqli_fetch_assoc($result)) {
-				$c=$c+1;
-			}
-		}
-              ?>
-		<span>(New Orders)</span>
-		<span style="    border-radius: 20px;
-    
-    background-color: red;
-    color: white;
-    padding: 5px;"><?php echo $c ;?></span>
+		
 		<a href="adminlogout.php">(logout)</a>
 	</section>
 
@@ -47,6 +33,9 @@ $result = $conn -> query ($sql);
 		<ul class="navbar-nav">
 		   <li class="nav-item">
 				<a class="nav-link d" href="home.php">List of Agents</a>
+			</li>
+			<li class="nav-item">
+				<a class="nav-link d" href="createAgent.php">Create New Agent</a>
 			</li>
 			<li class="nav-item">
 				<a class="nav-link d" href="contactus_submissions.php">Contact Us Submissions</a>

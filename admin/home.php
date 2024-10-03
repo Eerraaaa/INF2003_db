@@ -9,11 +9,19 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 include "../inc/headproduct.inc.php";
 include 'lib/connection.php';
 
-// Query for property table with search or location, sorting, and pagination
-$agentQuery = "SELECT * FROM Agent";
-$agentResult = $conn->query($agentQuery);
+// Use a JOIN to get agent and user details in a single query
+$query = "
+    SELECT 
+        a.agentID, a.areaInCharge, a.rating, 
+        u.username, u.email, u.fname, u.lname, u.phone_number
+    FROM Agent a
+    JOIN Users u ON a.userID = u.userID
+    WHERE u.userType = 'agent'
+";
 
-if (!$agentResult) {
+$result = $conn->query($query);
+
+if (!$result) {
     die("Database query failed: " . $conn->error);
 }
 ?>
@@ -26,46 +34,30 @@ if (!$agentResult) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent List</title>
-    <link rel="stylesheet" href="css/home.css">
+    <link rel="stylesheet" href="../css/home.css">
+    <link rel="stylesheet" href="css/pending_orders.css">
+    <link rel="stylesheet" href="../css/searchnavStyle.css">
 </head>
 
 <body>
     <div class="container homebody">
         <div class="row">
-            <div class="col-md-12">
-                <h1>List of Agents</h1>
-            </div>
         </div>
     </div>
 
     <div class="row mt-3">
-        <div class="col-lg-2"></div>
-        <div class="col-lg-10 title">
-            <h2>List of Agents</h2>
+        <div class="col-md-6">
+          <h5>List of Agents</h5>
         </div>
     </div>
-
+    <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
+            <input type="search" class="form-control" placeholder="Search" aria-label="search" name="search">
+            <button class="btn btn-primary search" type="submit" name="submit_search">Search</button>
+        </form>
     <!-- MAIN BODY -->
     <div class="row">
-        <!-- MAIN BAR-->
-        <div class="col-sm-12 col-lg-10 mt-3 main-content">
-            <div class="filter-container">
-                <ul class="grid-container">
-                    <li class="active"><i class="fa-sharp fa-solid fa-grip icon"></i></li>
-                    <li><i class="fa-sharp fa-solid fa-list icon"></i></li>
-                </ul>
-                <div class="drop-down">
-                    <label for="filter-type">Sort By:</label>
-                    <select class="filter-type" id="filter-type">
-                        <!-- Populate this dropdown with sorting options -->
-                        <option value="username">Username</option>
-                        <option value="rating">Rating</option>
-                        <!-- Add more options as needed -->
-                    </select>
-                </div>
-            </div>
 
-            <!-- Property Listings Table -->
+            <!-- Agent Listings Table -->
             <div class="row mt-5">
                 <div class="col-12">
                     <table class="table table-striped">
@@ -74,22 +66,30 @@ if (!$agentResult) {
                                 <th>Agent ID</th>
                                 <th>Username</th>
                                 <th>Email</th>
+                                <th>First Name</th>
+                                <th>Last Name</th>
+                                <th>Phone Number</th>
+                                <th>Area In Charge</th>
                                 <th>Rating</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php
-                            if ($agentResult->num_rows > 0) {
-                                while ($row = $agentResult->fetch_assoc()) {
+                            if ($result->num_rows > 0) {
+                                while ($row = $result->fetch_assoc()) {
                                     echo "<tr>";
                                     echo "<td>" . htmlspecialchars($row['agentID']) . "</td>";
                                     echo "<td>" . htmlspecialchars($row['username']) . "</td>";
                                     echo "<td>" . htmlspecialchars($row['email']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['fname']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['lname']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['phone_number']) . "</td>";
+                                    echo "<td>" . htmlspecialchars($row['areaInCharge']) . "</td>";
                                     echo "<td>" . htmlspecialchars($row['rating']) . "</td>";
                                     echo "</tr>";
                                 }
                             } else {
-                                echo "<tr><td colspan='4'>No agents found</td></tr>";
+                                echo "<tr><td colspan='8'>No agents found</td></tr>";
                             }
                             ?>
                         </tbody>
