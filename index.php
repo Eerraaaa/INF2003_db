@@ -2,103 +2,29 @@
 <html lang="en">
 <head>
     <?php
-        session_start(); // Start the session if not already started
+    session_start();
+    include "inc/headproduct.inc.php";
+    include 'lib/connection.php';
 
-        include "inc/headproduct.inc.php";
-        include 'lib/connection.php'; // Ensure you include your database connection here
+    $isLoggedIn = isset($_SESSION['user_id']);
 
-        $isLoggedIn = isset($_SESSION['user_id']); // true if logged in, false otherwise
+    // Sorting setup
+    $sortBy = isset($_GET['sort']) ? $conn->real_escape_string($_GET['sort']) : 'newest';
 
-        // Pagination setup
-        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-        $itemsPerPage = 50; // 50 records per page
-        $offset = ($page - 1) * $itemsPerPage;
+    // Capture the selected location (if any) from the URL
+    $selectedLocation = isset($_GET['deal_category']) ? $conn->real_escape_string($_GET['deal_category']) : '';
 
-        // Sorting setup
-        $sortBy = isset($_GET['sort']) ? $conn->real_escape_string($_GET['sort']) : 'newest';
+    // Capture the search query (if any)
+    $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
 
-        // Capture the selected location (if any) from the URL
-        $selectedLocation = isset($_GET['deal_category']) ? $conn->real_escape_string($_GET['deal_category']) : '';
+    // Fetch all distinct locations from the database for the dynamic location list
+    $locationQuery = "SELECT DISTINCT town FROM Location ORDER BY town ASC";
+    $locationResult = $conn->query($locationQuery);
 
-        // Capture the search query (if any)
-        $search = isset($_GET['search']) ? $conn->real_escape_string($_GET['search']) : '';
+    // Fetch distinct flat types from the Property table
+    $flatTypeQuery = "SELECT DISTINCT flatType FROM Property ORDER BY flatType ASC";
+    $flatTypeResult = $conn->query($flatTypeQuery);
 
-        // Determine the ORDER BY clause based on sorting selection
-        $orderByClause = "ORDER BY ";
-        switch ($sortBy) {
-            case 'price_low_high':
-                $orderByClause .= "p.resalePrice ASC";
-                break;
-            case 'price_high_low':
-                $orderByClause .= "p.resalePrice DESC";
-                break;
-            case 'oldest':
-                $orderByClause .= "p.transactionDate ASC";
-                break;
-            case 'newest':
-            default:
-                $orderByClause .= "p.transactionDate DESC";
-                break;
-        }
-
-       // Construct WHERE clause for search or location filtering
-        $whereClause = 'WHERE 1=1 '; // Default condition to always be true
-
-        if (!empty($search)) {
-            $searchTerms = explode(' ', strtolower($search));
-            $searchClauses = [];
-            
-            foreach ($searchTerms as $term) {
-                $termClauses = [];
-                $termClauses[] = "LOWER(p.flatType) LIKE '%$term%'";
-                $termClauses[] = "LOWER(l.streetName) LIKE '%$term%'";
-                $termClauses[] = "LOWER(l.town) LIKE '%$term%'";
-                $termClauses[] = "LOWER(l.block) LIKE '%$term%'";
-                
-                // Check if the term is numeric (potential block number)
-                if (is_numeric($term)) {
-                    $termClauses[] = "l.block = '$term'";
-                }
-                
-                $searchClauses[] = "(" . implode(" OR ", $termClauses) . ")";
-            }
-            
-            $whereClause .= " AND (" . implode(" AND ", $searchClauses) . ")";
-        }
-
-        // Apply location filtering if a location is selected
-        if (!empty($selectedLocation)) {
-            $whereClause .= " AND LOWER(l.town) = LOWER('$selectedLocation')";
-        }
-
-        // Query for property table with search or location, sorting, and pagination
-        $propertyQuery = "SELECT p.flatType, 
-                                CONCAT(l.town, ' ', l.streetName, ' Block ', l.block) AS locationName,
-                                p.resalePrice, 
-                                p.transactionDate 
-                        FROM Property p
-                        JOIN Location l ON p.locationID = l.locationID
-                        $whereClause
-                        $orderByClause
-                        LIMIT $itemsPerPage OFFSET $offset";
-        $propertyResult = $conn->query($propertyQuery);
-
-        if (!$propertyResult) {
-            die("Query failed: " . $conn->error);
-        }
-
-        // Get total number of properties
-        $totalQuery = "SELECT COUNT(*) as total 
-                    FROM Property p
-                    JOIN Location l ON p.locationID = l.locationID
-                    $whereClause";
-        $totalResult = $conn->query($totalQuery);
-        $totalProperties = $totalResult->fetch_assoc()['total'];
-        $totalPages = ceil($totalProperties / $itemsPerPage);
-
-        // Fetch all distinct locations from the database for the dynamic location list
-        $locationQuery = "SELECT DISTINCT town FROM Location ORDER BY town ASC";
-        $locationResult = $conn->query($locationQuery);
     ?>
 
     <title>Properties</title>
@@ -122,13 +48,13 @@
                 <div class="Deals">
                     <h4>Locations</h4>
                     <ul>
+                        <li><a href="#" data-location="" class="active">ALL LOCATIONS</a></li>
                     <?php
-                    // Display the dynamic list of locations
                     if ($locationResult->num_rows > 0) {
                         while ($row = $locationResult->fetch_assoc()) {
                             $town = htmlspecialchars($row['town']);
                             $isActive = ($selectedLocation == $town) ? 'class="active"' : '';
-                            echo "<li><a href='index.php?deal_category=" . urlencode($town) . "&sort=$sortBy' $isActive>" . $town . "</a></li>";
+                            echo "<li><a href='#' data-location='" . urlencode($town) . "' $isActive>" . $town . "</a></li>";
                         }
                     } else {
                         echo "<li>No locations available</li>";
@@ -139,7 +65,7 @@
                 <div class="category">
                     <h4>Agents</h4>
                     <ul>
-                        <li><a href="index.php?category=Agent Lee">Agent Lee</a></li>
+                        <li><a href="#" data-agent="Agent Lee">Agent Lee</a></li>
                     </ul>
                 </div>
             </div>
@@ -154,18 +80,41 @@
                     <div class="drop-down">
                         <label for="filter-type">Sort By:</label>
                         <select class="filter-type" id="filter-type">
-                            <option value="newest" <?php echo $sortBy == 'newest' ? 'selected' : ''; ?>>Newest to Oldest</option>
-                            <option value="oldest" <?php echo $sortBy == 'oldest' ? 'selected' : ''; ?>>Oldest to Newest</option>
-                            <option value="price_low_high" <?php echo $sortBy == 'price_low_high' ? 'selected' : ''; ?>>Price: low to high</option>
-                            <option value="price_high_low" <?php echo $sortBy == 'price_high_low' ? 'selected' : ''; ?>>Price: high to low</option>
+                            <option value="newest">Newest to Oldest</option>
+                            <option value="oldest">Oldest to Newest</option>
+                            <option value="price_low_high">Price: low to high</option>
+                            <option value="price_high_low">Price: high to low</option>
                         </select>
                     </div>
+                    <div class="drop-down">
+                        <label for="property-type">Properties:</label>
+                        <select class="filter-type" id="property-type">
+                            <option value="all">ALL PROPERTIES</option>
+                            <option value="sold">SOLD PROPERTIES</option>
+                            <option value="available">AVAILABLE PROPERTIES</option>
+                        </select>
+                    </div>
+                    <div class="drop-down">
+                        <label for="flat-type">Flat Type:</label>
+                        <select class="filter-type" id="flat-type">
+                            <option value="all">All Flat Types</option>
+                            <?php
+                            if ($flatTypeResult->num_rows > 0) {
+                                while ($row = $flatTypeResult->fetch_assoc()) {
+                                    $flatType = htmlspecialchars($row['flatType']);
+                                    echo "<option value='$flatType'>$flatType</option>";
+                                }
+                            }
+                            ?>
+                        </select>
+                    </div>
+
                 </div>
 
                 <!-- Property Listings Table -->
                 <div class="row mt-5">
                     <div class="col-12">
-                        <h3>Recent Property Listings</h3>
+                        <h3>Property Listings</h3>
                         <table class="table table-striped">
                             <thead>
                                 <tr>
@@ -173,23 +122,11 @@
                                     <th>Location</th>
                                     <th>Resale Price</th>
                                     <th>Transaction Date</th>
+                                    <th>Availability</th>
                                 </tr>
                             </thead>
-                            <tbody>
-                                <?php
-                                if ($propertyResult->num_rows > 0) {
-                                    while($row = $propertyResult->fetch_assoc()) {
-                                        echo "<tr>";
-                                        echo "<td>" . htmlspecialchars($row['flatType']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['locationName']) . "</td>";
-                                        echo "<td>$" . number_format($row['resalePrice']) . "</td>";
-                                        echo "<td>" . htmlspecialchars($row['transactionDate']) . "</td>";
-                                        echo "</tr>";
-                                    }
-                                } else {
-                                    echo "<tr><td colspan='4'>No properties found</td></tr>";
-                                }
-                                ?>
+                            <tbody id="propertyTableBody">
+                                <!-- Properties will be populated here via JavaScript -->
                             </tbody>
                         </table>
                     </div>
@@ -198,96 +135,169 @@
                 <!-- Pagination -->
                 <div class="row page-container">
                     <div class="col-xs-12 col-md-4 page-detail">
-                        <span><?php echo ($offset + 1) . " - " . min($offset + $itemsPerPage, $totalProperties) . " property(s) of " . $totalProperties; ?></span>
+                        <span id="paginationInfo"></span>
                     </div>
-                    <div class="col-xs-12 col-md-8 page-list">
-                        <?php
-                        $pagesToShow = 5; // Number of page links to show
-                        $startPage = max($page - floor($pagesToShow / 2), 1);
-                        $endPage = min($startPage + $pagesToShow - 1, $totalPages);
-
-                        $urlParams = http_build_query([
-                            'sort' => $sortBy,
-                            'deal_category' => $selectedLocation,
-                            'search' => $search
-                        ]);
-
-                        if ($startPage > 1) {
-                            echo "<a href='?page=1&$urlParams'><span>First</span></a>";
-                            if ($startPage > 2) {
-                                echo "<span>...</span>";
-                            }
-                        }
-
-                        if ($page > 1) {
-                            echo "<a href='?page=" . ($page - 1) . "&$urlParams'><i class='fa-solid fa-chevron-left'></i><span>Previous</span></a>";
-                        }
-
-                        for ($i = $startPage; $i <= $endPage; $i++) {
-                            if ($i == $page) {
-                                echo "<span class='active'>$i</span>";
-                            } else {
-                                echo "<a href='?page=$i&$urlParams'><span>$i</span></a>";
-                            }
-                        }
-
-                        if ($page < $totalPages) {
-                            echo "<a href='?page=" . ($page + 1) . "&$urlParams'><span>Next</span><span class='arrow-right'><i class='fa-solid fa-chevron-right'></i></span></a>";
-                        }
-
-                        if ($endPage < $totalPages) {
-                            if ($endPage < $totalPages - 1) {
-                                echo "<span>...</span>";
-                            }
-                            echo "<a href='?page=$totalPages&$urlParams'><span>Last</span></a>";
-                        }
-                        ?>
+                    <div class="col-xs-12 col-md-8 page-list" id="paginationControls">
+                        <!-- Pagination controls will be populated here via JavaScript -->
                     </div>
                 </div>
             </div>
         </div>
-
     </main>
 
     <?php include "inc/footer.inc.php"; ?>
 
+
     <script>
-        // Function to update URL parameters while maintaining others
-        function updateURLParameter(param, value) {
-            const url = new URL(window.location.href);
-            url.searchParams.set(param, value);
-            if (param !== 'page') {
-                url.searchParams.set('page', '1'); // Reset to first page when changing filters
+        document.addEventListener('DOMContentLoaded', function() {
+            const sortSelect = document.getElementById('filter-type');
+            const propertyTypeSelect = document.getElementById('property-type');
+            const flatTypeSelect = document.getElementById('flat-type'); // New flat type select
+            const propertyTableBody = document.getElementById('propertyTableBody');
+            const paginationInfo = document.getElementById('paginationInfo');
+            const paginationControls = document.getElementById('paginationControls');
+            const locationLinks = document.querySelectorAll('.Deals a');
+            const searchForm = document.querySelector('form');
+
+            let currentFilter = 'all';
+            let currentFlatType = 'all'; // Variable for flat type
+            let currentSort = sortSelect.value;
+            let currentPage = 1;
+            let currentLocation = '';
+            let currentSearch = '';
+
+            function fetchProperties() {
+                const url = `getproperties.php?filter=${currentFilter}&flat_type=${currentFlatType}&sort=${currentSort}&page=${currentPage}&deal_category=${currentLocation}&search=${encodeURIComponent(currentSearch)}`;
+                
+                console.log('Fetching properties with URL:', url);  // Debug log
+                
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Received data:', data);  // Debug log
+                        updatePropertyTable(data.properties);
+                        updatePagination(data);
+                    })
+                    .catch(error => console.error('Error:', error));
             }
-            window.history.replaceState({}, '', url);
-        }
 
-        // Sorting functionality
-        document.getElementById('filter-type').addEventListener('change', function() {
-            updateURLParameter('sort', this.value);
-            location.reload();
-        });
+            function updatePropertyTable(properties) {
+                propertyTableBody.innerHTML = '';
+                if (properties.length === 0) {
+                    propertyTableBody.innerHTML = '<tr><td colspan="5">No properties found</td></tr>';
+                } else {
+                    properties.forEach(property => {
+                        const row = `
+                            <tr>
+                                <td>${property.flatType}</td>
+                                <td>${property.locationName}</td>
+                                <td>$${Number(property.resalePrice).toLocaleString()}</td>
+                                <td>${property.transactionDate}</td>
+                                <td>${property.availability}</td>
+                            </tr>
+                        `;
+                        propertyTableBody.innerHTML += row;
+                    });
+                }
+            }
 
-        // Search functionality
-        document.querySelector('form').addEventListener('submit', function(e) {
-            e.preventDefault();
-            const searchTerm = document.querySelector('input[name="search"]').value;
-            updateURLParameter('search', searchTerm);
-            // Clear the location parameter when searching
-            const url = new URL(window.location.href);
-            url.searchParams.delete('deal_category');
-            window.history.replaceState({}, '', url);
-            location.reload();
-        });
+            function updatePagination(data) {
+                paginationInfo.textContent = `${data.start} - ${data.end} of ${data.total} properties`;
+                
+                paginationControls.innerHTML = '';
+                if (data.totalPages > 1) {
+                    let paginationHTML = '';
+                    const pagesToShow = 5;
+                    const startPage = Math.max(1, data.currentPage - Math.floor(pagesToShow / 2));
+                    const endPage = Math.min(data.totalPages, startPage + pagesToShow - 1);
 
-        // Handle clicking on location links
-        document.querySelectorAll('.Deals a').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const location = this.textContent.trim();
-                const sort = document.getElementById('filter-type').value;
-                window.location.href = `index.php?deal_category=${encodeURIComponent(location)}&sort=${sort}`;
+                    if (startPage > 1) {
+                        paginationHTML += `<a href="#" data-page="1"><span>First</span></a>`;
+                        if (startPage > 2) {
+                            paginationHTML += `<span>...</span>`;
+                        }
+                    }
+
+                    if (data.currentPage > 1) {
+                        paginationHTML += `<a href="#" data-page="${data.currentPage - 1}"><i class='fa-solid fa-chevron-left'></i><span>Previous</span></a>`;
+                    }
+
+                    for (let i = startPage; i <= endPage; i++) {
+                        if (i === data.currentPage) {
+                            paginationHTML += `<span class="active">${i}</span>`;
+                        } else {
+                            paginationHTML += `<a href="#" data-page="${i}"><span>${i}</span></a>`;
+                        }
+                    }
+
+                    if (data.currentPage < data.totalPages) {
+                        paginationHTML += `<a href="#" data-page="${data.currentPage + 1}"><span>Next</span><span class='arrow-right'><i class='fa-solid fa-chevron-right'></i></span></a>`;
+                    }
+
+                    if (endPage < data.totalPages) {
+                        if (endPage < data.totalPages - 1) {
+                            paginationHTML += `<span>...</span>`;
+                        }
+                        paginationHTML += `<a href="#" data-page="${data.totalPages}"><span>Last</span></a>`;
+                    }
+
+                    paginationControls.innerHTML = paginationHTML;
+
+                    paginationControls.querySelectorAll('a').forEach(link => {
+                        link.addEventListener('click', function(e) {
+                            e.preventDefault();
+                            currentPage = parseInt(this.dataset.page);
+                            fetchProperties();
+                        });
+                    });
+                }
+            }
+
+            propertyTypeSelect.addEventListener('change', function() {
+                currentFilter = this.value;
+                currentPage = 1;
+                fetchProperties();
             });
+
+            flatTypeSelect.addEventListener('change', function() {
+                currentFlatType = this.value; // Handle flat type changes
+                currentPage = 1;
+                fetchProperties();
+            });
+
+            sortSelect.addEventListener('change', function() {
+                currentSort = this.value;
+                currentPage = 1;
+                fetchProperties();
+            });
+
+            locationLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    locationLinks.forEach(l => l.classList.remove('active'));
+                    this.classList.add('active');
+                    currentLocation = this.dataset.location;
+                    currentSearch = '';
+                    currentPage = 1;
+                    fetchProperties();
+                });
+            });
+
+            searchForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                currentSearch = this.querySelector('input[name="search"]').value;
+                currentLocation = ''; // Reset location when searching
+                currentPage = 1;
+                fetchProperties();
+                
+                // Remove 'active' class from all location links
+                locationLinks.forEach(link => link.classList.remove('active'));
+                // Add 'active' class to 'All Locations' link
+                document.querySelector('.Deals a[data-location=""]').classList.add('active');
+            });
+
+            // Initial fetch
+            fetchProperties();
         });
     </script>
 </body>
