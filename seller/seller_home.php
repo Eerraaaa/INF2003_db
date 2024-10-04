@@ -32,6 +32,7 @@
 
         // Fetch the seller's property listings along with location and status
         $sql = "SELECT 
+                    Property.propertyID,
                     Property.flatType, 
                     Property.resalePrice, 
                     Property.approvalStatus, 
@@ -55,7 +56,6 @@
         // Check if there are listings for the seller
         if ($result->num_rows > 0) {
             echo "<div class='container mt-5'>";
-            echo "<h2>Your Property Listings</h2>";
             echo "<table class='table table-bordered table-striped'>";
             echo "<thead>";
             echo "<tr>";
@@ -78,6 +78,7 @@
                 echo "<td>" . htmlspecialchars($row['town']) . "</td>";
                 echo "<td>" . htmlspecialchars($row['streetName']) . "</td>";
                 echo "<td>" . htmlspecialchars($row['block']) . "</td>";
+                echo "<td><a href='update_listing.php?id=" . $row['propertyID'] . "' class='btn btn-warning'>Update</a></td>";
                 echo "</tr>";
             }
 

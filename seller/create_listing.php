@@ -1,3 +1,126 @@
+<?php
+    session_start();
+    if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
+        header("Location: unauthorized.php"); // Redirect to unauthorized access page
+        exit();
+    }
+    include '../lib/connection.php';
+    include "../inc/sellernav.inc.php";
+
+    // Enable error reporting
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+
+    // Fetch distinct flat types from Property table
+    $flatQuery = "SELECT DISTINCT flatType FROM Property";
+    $flatResult = $conn->query($flatQuery);
+
+    // Fetch distinct towns from Location table
+    $locationQuery = "SELECT DISTINCT town FROM Location ORDER BY town ASC";
+    $locationResult = $conn->query($locationQuery);
+
+    // Fetch agents from User table where userType is 'agent'
+    $agentQuery = "
+        SELECT Agent.agentID, Users.username 
+        FROM Agent
+        JOIN Users ON Agent.userID = Users.userID";
+    $agentResult = $conn->query($agentQuery);
+
+    // Check if the form has been submitted
+    $feedbackMessage = ''; // Initialize a variable to hold the feedback message
+
+    // Logged in user is the seller
+    $sellerID = $_SESSION['userID'];
+
+    // Check if the form has been submitted
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        echo "Form is submitting"; // Debug
+
+        // Validate and sanitize the inputs
+        $flatType = filter_input(INPUT_POST, 'flatType', FILTER_SANITIZE_STRING);
+        $town = filter_input(INPUT_POST, 'town', FILTER_SANITIZE_STRING);
+        $streetName = filter_input(INPUT_POST, 'streetName', FILTER_SANITIZE_STRING);
+        $block = filter_input(INPUT_POST, 'block', FILTER_SANITIZE_STRING);
+        $resalePrice = filter_input(INPUT_POST, 'resalePrice', FILTER_VALIDATE_FLOAT);
+        $agentID = filter_input(INPUT_POST, 'agentID', FILTER_VALIDATE_INT);
+
+        // Check if all form fields are filled
+        if ($flatType && $town && $streetName && $block && $resalePrice && $agentID && $sellerID) {
+            echo "All form fields are valid"; // Debug
+
+            // Check if the agent exists in the Agent table
+            $agentCheckQuery = "SELECT agentID FROM Agent WHERE agentID = ?";
+            $stmt = $conn->prepare($agentCheckQuery);
+            if (!$stmt) {
+                echo "Error preparing the agent check query: " . $conn->error; // Debug the SQL error
+            } else {
+                $stmt->bind_param('i', $agentID);
+                $stmt->execute();
+                $agentResult = $stmt->get_result();
+
+                if ($agentResult->num_rows == 0) {
+                    echo "Error: Selected agentID does not exist in the Agent table!";
+                    $feedbackMessage = "<div class='alert alert-danger'>Invalid agent selected. Please try again.</div>";
+                    exit(); // Stop the process if agentID is invalid
+                } else {
+                    echo "Agent exists with agentID: " . $agentID; // Debug
+                }
+            }
+
+            // Check if the location already exists
+            $stmt = $conn->prepare('SELECT locationID FROM Location WHERE town = ? AND streetName = ? AND block = ?');
+            if (!$stmt) {
+                echo "Error preparing the SELECT query: " . $conn->error; // Debug the SQL error
+            } else {
+                $stmt->bind_param('sss', $town, $streetName, $block);
+                $stmt->execute();
+                $locationResult = $stmt->get_result();
+                $location = $locationResult->fetch_assoc();
+
+                if ($location) {
+                    $locationID = $location['locationID'];
+                } else {
+                    // If location does not exist, insert it
+                    $stmt = $conn->prepare('INSERT INTO Location (town, streetName, block) VALUES (?, ?, ?)');
+                    if (!$stmt) {
+                        echo "Error preparing the INSERT query for Location: " . $conn->error;
+                    } else {
+                        $stmt->bind_param('sss', $town, $streetName, $block);
+                        $stmt->execute();
+                        $locationID = $conn->insert_id;
+                    }
+                }
+
+                // Prepare the Property Insert Query (with sellerID)
+                $sql = 'INSERT INTO Property (flatType, locationID, agentID, resalePrice, approvalStatus, sellerID) VALUES (?, ?, ?, ?, ?, ?)';
+                echo "<p>SQL Query: $sql</p>"; // Debug the query
+
+                $stmt = $conn->prepare($sql);
+                if (!$stmt) {
+                    echo "Error preparing the INSERT query for Property: " . $conn->error; // Show the MySQL error
+                } else {
+                    $status = 'pending';
+                    $stmt->bind_param('siidsi', $flatType, $locationID, $agentID, $resalePrice, $status, $sellerID);
+
+                    if ($stmt->execute()) {
+                        echo "Property inserted successfully"; // Debug
+                        $feedbackMessage = "<div class='alert alert-success'>Property listing created successfully!</div>";
+                        // Redirect to the view listing page after successful insertion
+                        header("Location: seller_home.php");
+                        exit(); // Stop further code execution
+                    } else {
+                        echo "Error inserting property: " . $conn->error; // Show the MySQL error
+                        $feedbackMessage = "<div class='alert alert-danger'>Error inserting property listing: " . $conn->error . "</div>";
+                    }
+                }
+            }
+        } else {
+            echo "Some form fields are missing"; // Debug
+            $feedbackMessage = "<div class='alert alert-warning'>Invalid input. Please check your data.</div>";
+        }
+    }
+?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,128 +140,6 @@
 <body>
     <div class="container mt-5" style="padding-top:100px;">
         <h2 class="text-center">Create New Listing</h2>
-        <?php
-        session_start();
-        if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
-            header("Location: unauthorized.php"); // Redirect to unauthorized access page
-            exit();
-        }
-        include '../lib/connection.php';
-        include "../inc/sellernav.inc.php";
-
-        // Enable error reporting
-        ini_set('display_errors', 1);
-        ini_set('display_startup_errors', 1);
-        error_reporting(E_ALL);
-
-        // Fetch distinct flat types from Property table
-        $flatQuery = "SELECT DISTINCT flatType FROM Property";
-        $flatResult = $conn->query($flatQuery);
-
-        // Fetch distinct towns from Location table
-        $locationQuery = "SELECT DISTINCT town FROM Location ORDER BY town ASC";
-        $locationResult = $conn->query($locationQuery);
-
-        // Fetch agents from User table where userType is 'agent'
-        $agentQuery = "
-            SELECT Agent.agentID, Users.username 
-            FROM Agent
-            JOIN Users ON Agent.userID = Users.userID";
-        $agentResult = $conn->query($agentQuery);
-
-        // Check if the form has been submitted
-        $feedbackMessage = ''; // Initialize a variable to hold the feedback message
-
-        // Logged in user is the seller
-        $sellerID = $_SESSION['userID'];
-
-        // Check if the form has been submitted
-        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-            echo "Form is submitting"; // Debug
-
-            // Validate and sanitize the inputs
-            $flatType = filter_input(INPUT_POST, 'flatType', FILTER_SANITIZE_STRING);
-            $town = filter_input(INPUT_POST, 'town', FILTER_SANITIZE_STRING);
-            $streetName = filter_input(INPUT_POST, 'streetName', FILTER_SANITIZE_STRING);
-            $block = filter_input(INPUT_POST, 'block', FILTER_SANITIZE_STRING);
-            $resalePrice = filter_input(INPUT_POST, 'resalePrice', FILTER_VALIDATE_FLOAT);
-            $agentID = filter_input(INPUT_POST, 'agentID', FILTER_VALIDATE_INT);
-
-            // Check if all form fields are filled
-            if ($flatType && $town && $streetName && $block && $resalePrice && $agentID && $sellerID) {
-                echo "All form fields are valid"; // Debug
-
-                // Check if the agent exists in the Agent table
-                $agentCheckQuery = "SELECT agentID FROM Agent WHERE agentID = ?";
-                $stmt = $conn->prepare($agentCheckQuery);
-                if (!$stmt) {
-                    echo "Error preparing the agent check query: " . $conn->error; // Debug the SQL error
-                } else {
-                    $stmt->bind_param('i', $agentID);
-                    $stmt->execute();
-                    $agentResult = $stmt->get_result();
-
-                    if ($agentResult->num_rows == 0) {
-                        echo "Error: Selected agentID does not exist in the Agent table!";
-                        $feedbackMessage = "<div class='alert alert-danger'>Invalid agent selected. Please try again.</div>";
-                        exit(); // Stop the process if agentID is invalid
-                    } else {
-                        echo "Agent exists with agentID: " . $agentID; // Debug
-                    }
-                }
-
-                // Check if the location already exists
-                $stmt = $conn->prepare('SELECT locationID FROM Location WHERE town = ? AND streetName = ? AND block = ?');
-                if (!$stmt) {
-                    echo "Error preparing the SELECT query: " . $conn->error; // Debug the SQL error
-                } else {
-                    $stmt->bind_param('sss', $town, $streetName, $block);
-                    $stmt->execute();
-                    $locationResult = $stmt->get_result();
-                    $location = $locationResult->fetch_assoc();
-
-                    if ($location) {
-                        $locationID = $location['locationID'];
-                    } else {
-                        // If location does not exist, insert it
-                        $stmt = $conn->prepare('INSERT INTO Location (town, streetName, block) VALUES (?, ?, ?)');
-                        if (!$stmt) {
-                            echo "Error preparing the INSERT query for Location: " . $conn->error;
-                        } else {
-                            $stmt->bind_param('sss', $town, $streetName, $block);
-                            $stmt->execute();
-                            $locationID = $conn->insert_id;
-                        }
-                    }
-
-                    // Prepare the Property Insert Query (with sellerID)
-                    $sql = 'INSERT INTO Property (flatType, locationID, agentID, resalePrice, approvalStatus, sellerID) VALUES (?, ?, ?, ?, ?, ?)';
-                    echo "<p>SQL Query: $sql</p>"; // Debug the query
-
-                    $stmt = $conn->prepare($sql);
-                    if (!$stmt) {
-                        echo "Error preparing the INSERT query for Property: " . $conn->error; // Show the MySQL error
-                    } else {
-                        $status = 'pending';
-                        $stmt->bind_param('siidsi', $flatType, $locationID, $agentID, $resalePrice, $status, $sellerID);
-
-                        if ($stmt->execute()) {
-                            echo "Property inserted successfully"; // Debug
-                            $feedbackMessage = "<div class='alert alert-success'>Property listing created successfully!</div>";
-                        } else {
-                            echo "Error inserting property: " . $conn->error; // Show the MySQL error
-                            $feedbackMessage = "<div class='alert alert-danger'>Error inserting property listing: " . $conn->error . "</div>";
-                        }
-                    }
-                }
-            } else {
-                echo "Some form fields are missing"; // Debug
-                $feedbackMessage = "<div class='alert alert-warning'>Invalid input. Please check your data.</div>";
-            }
-        }
-
-        ?>
-
         <!-- Display feedback message -->
         <?php if (!empty($feedbackMessage)): ?>
             <?php echo $feedbackMessage; ?>
