@@ -1,10 +1,3 @@
-<?php
-include'lib/connection.php';
-$sql = "SELECT * FROM users ";
-$result = $conn -> query ($sql);
-
-?>
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -26,7 +19,7 @@ $result = $conn -> query ($sql);
 		<i class="fas fa-bars fixed" onclick="openside()"></i>
 		<div class="line-fixed">Admin Panel</div>
 		
-		<a href="adminlogout.php">(logout)</a>
+		<a href="adminlogout.php">	(logout)</a>
 	</section>
 
 	<div class="sidenav" id="sidenav">
@@ -42,9 +35,7 @@ $result = $conn -> query ($sql);
 			</li>
 		</ul>
 	</div>
-	<?php
-
-?>
+	
 <!--js link-->
 <script
       src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.5/dist/umd/popper.min.js"

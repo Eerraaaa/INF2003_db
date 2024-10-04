@@ -34,26 +34,25 @@ if (!$result) {
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Agent List</title>
-    <link rel="stylesheet" href="../css/home.css">
-    <link rel="stylesheet" href="css/pending_orders.css">
-    <link rel="stylesheet" href="../css/searchnavStyle.css">
+    <link rel="stylesheet" href="../css/style.css">
 </head>
 
 <body>
-    <div class="container homebody">
-        <div class="row">
-        </div>
-    </div>
+    <br>
+    <br>
+    <br>
+    <br>
+    <br>
 
-    <div class="row mt-3">
-        <div class="col-md-6">
-          <h5>List of Agents</h5>
-        </div>
-    </div>
-    <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
+          <h3>List of Agents</h3>
+          
+    <div class="container-fluid">
+    <div class="row search-bar mt-3">
+        <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
             <input type="search" class="form-control" placeholder="Search" aria-label="search" name="search">
             <button class="btn btn-primary search" type="submit" name="submit_search">Search</button>
         </form>
+    </div>
     <!-- MAIN BODY -->
     <div class="row">
 
@@ -71,6 +70,7 @@ if (!$result) {
                                 <th>Phone Number</th>
                                 <th>Area In Charge</th>
                                 <th>Rating</th>
+                                <th>Actions</th> 
                             </tr>
                         </thead>
                         <tbody>
@@ -86,6 +86,16 @@ if (!$result) {
                                     echo "<td>" . htmlspecialchars($row['phone_number']) . "</td>";
                                     echo "<td>" . htmlspecialchars($row['areaInCharge']) . "</td>";
                                     echo "<td>" . htmlspecialchars($row['rating']) . "</td>";
+                                    echo "<td>
+                                            <form action='update_agent.php' method='post' style='display:inline;'>
+                                                <input type='hidden' name='agentID' value='" . htmlspecialchars($row['agentID']) . "'>
+                                                <button type='submit' class='btn btn-warning'>Update</button>
+                                            </form>
+                                            <form action='delete_agent.php' method='post' style='display:inline;'>
+                                                <input type='hidden' name='agentID' value='" . htmlspecialchars($row['agentID']) . "'>
+                                                <button type='submit' class='btn btn-danger' onclick='return confirm(\"Are you sure you want to delete this agent?\");'>Delete</button>
+                                            </form>
+                                        </td>";
                                     echo "</tr>";
                                 }
                             } else {

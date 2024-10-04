@@ -7,6 +7,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 }
 
 include 'lib/connection.php';
+include "../inc/headform.inc.php";
 
 // Query for property table with search or location, sorting, and pagination
 $agentQuery = "SELECT * FROM Agent";
@@ -29,17 +30,21 @@ if (!$agentResult) {
 </head>
 
 <body>
-    <div class="container homebody">
-        <div class="row">
-        </div>
-    </div>
+  
+<main id="main-content">
+    <div class="container" style="margin-top: 220px;">
 
-    <div class="row mt-3">
-        <div class="col-lg-2"></div>
-        <div class="col-lg-10 title">
-            <h2>Create New Agent Account</h2>
-        </div>
-    </div>
+    <h1>Create New Agent Account</h1>
+
+    <?php
+      if (isset($_SESSION['form_errors'])) {
+        foreach ($_SESSION['form_errors'] as $error) {
+          echo "<div class='error-message'>$error</div>";
+        }
+        // Clear errors after displaying
+        unset($_SESSION['form_errors']);
+      }
+      ?>
 
     <form id="registrationForm" action="process_createAgent.php" method="post">
         <!-- Form fields -->
@@ -90,5 +95,6 @@ if (!$agentResult) {
           <button type="submit" class="submit">Submit</button>
         </div>
       </form>
-
+      </main>
+      <script src="../js/formscript.js"></script>
 </html>

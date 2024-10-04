@@ -1,51 +1,104 @@
 body {
   background-color: #f9f9f9;
 }
+
+h3{
+  text-align: center;
+}
+
 .header {
   width: 100%;
   height: 100px;
   background-color: white;
   transition: 0.3s;
+  position: fixed; /* Make the header fixed to stay at the top */
+  top: 0;
+  left: 0;
+  z-index: 1000; /* Ensure the header stays above other content */
 }
+
 .sidenav {
   height: 100%;
-  width: 0px;
+  width: 250px; /* Define a fixed width for the side navigation */
   background-color: #0e1a35;
-  position: fixed;
   z-index: 1;
   left: 0;
+  top: 100px; /* Adjust sidenav to start below the header */
   overflow: hidden;
   transition: 0.3s;
+  position: fixed; /* Keep the sidenav fixed to the side */
 }
+
 .sidenav ul li {
   padding-top: 10px;
   padding-left: 30px;
   font-size: 20px;
 }
+
 .sidenav ul li a {
   color: white;
 }
+
 .fixed {
   padding: 30px;
-  /*padding-left: 300px;*/
   font-size: 25px;
 }
+
 i {
   cursor: pointer;
   margin-right: 10px;
 }
+
 p {
   transition: 0.3s;
 }
+
 .line-fixed {
   display: inline;
   padding-left: 10px;
   font-weight: 700;
   font-size: 25px !important;
 }
+
 .fixed-logo {
   width: 55px;
 }
+
 a.nav-link:hover {
   color: yellow;
+}
+
+.search-bar {
+    display: flex;
+    text-align: center;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px; 
+}
+
+.search-bar form {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.search-bar input[type="search"] {
+    background-color: #f3f2f2;
+    padding: 12px;
+    border: none;
+    border-radius: 5px;
+}
+
+.search-bar button.search {
+    padding: 10px 20px;
+    background-color: orange; 
+    border: none;
+    border-radius: 5px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.search-bar button.search:hover {
+    background-color:rgb(231, 157, 18); 
 }
