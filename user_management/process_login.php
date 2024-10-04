@@ -45,7 +45,7 @@ if ($user && password_verify($password, $user['password'])) {
         header("Location: ../agent/home.php");
         exit();
     } else if ($user['userType'] === 'buyer') {
-        header("Location: ../buyer/buyer_home.php");
+        header("Location: ../index.php");
         exit();
     } else if ($user['userType'] === 'seller') {
         header("Location: ../seller/seller_home.php");

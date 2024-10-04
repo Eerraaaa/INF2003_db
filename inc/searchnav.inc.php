@@ -1,14 +1,14 @@
 <?php
 // Start or resume a session
 session_start();
-$isLoggedIn = isset($_SESSION['user_id']); // true if logged in, false otherwise
+$isLoggedIn = isset($_SESSION['userID']); // Changed from user_id to userID
+$userType = $_SESSION['user_type'] ?? ''; // Get the user type from the session
+$isBuyer = $isLoggedIn && $userType === 'buyer';
 
 // Check if the user is logged in and retrieve user's first name
 if ($isLoggedIn) {
-    // Assuming you have stored the user's first name in the session data
-    $userFirstName = isset($_SESSION['user_first_name']) ? $_SESSION['user_first_name'] : '';
+    $userFirstName = $_SESSION['user_first_name'] ?? 'User';
 } else {
-    // If the user is not logged in, set a default value for $userFirstName
     $userFirstName = 'Account';
 }
 ?>
@@ -21,7 +21,7 @@ if ($isLoggedIn) {
         <nav class="col-sm-12 col-md-6 nav-item">
             <ul>
                 <li class="account-dropdown">
-                    <?php if (!empty($_SESSION['user_id']) && !empty($_SESSION['user_first_name'])): ?>
+                    <?php if ($isLoggedIn): ?>
                         <a href="#"><i class="fa fa-user"></i><span><?php echo htmlspecialchars($userFirstName); ?></span></a>
                         <span class="account-dropdown-content">
                             <a href="user_dashboard.php">Dashboard</a>
@@ -30,13 +30,16 @@ if ($isLoggedIn) {
                     <?php else: ?>
                         <a href="#"><i class="fa fa-user"></i><span>Account</span></a>
                         <span class="account-dropdown-content">
-                            <a href="../user_management/register.php">Register</a>
-                            <a href="../user_management/newlogin.php">Login</a>
+                            <a href="user_management/register.php">Register</a>
+                            <a href="user_management/newlogin.php">Login</a>
                         </span>
                     <?php endif; ?>
                 </li>
-                <li><a href="wishlist.php"><i class="fa-solid fa-heart"></i><span>Wishlist</span></a></li>
-                <li><a href="cart.php"><i class="fa-solid fa-cart-shopping"></i><span>MY CART</span></a></li>
+                <?php if ($isBuyer): ?>
+                    <li><a href="wishlist.php"><i class="fa-solid fa-heart"></i><span>Wishlist</span></a></li>
+                    <li><a href="cart.php"><i class="fa-solid fa-cart-shopping"></i><span>My Cart</span></a></li>
+                    <li><a href="pasttransaction.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
+                <?php endif; ?>
             </ul>
         </nav>
     </div>
@@ -44,9 +47,8 @@ if ($isLoggedIn) {
 <div class="container-fluid">
     <div class="row search-bar mt-3">
         <div class="col-2 col-lg-1">
-            <!-- Bar icon to toggle navbar collapse -->
             <button class="navbar-toggler burgermenu" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <i class=" fa-sharp fa-solid fa-bars"></i>
+                <i class="fa-sharp fa-solid fa-bars"></i>
             </button>
         </div>
         <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
@@ -55,14 +57,13 @@ if ($isLoggedIn) {
         </form>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav">
-            <div class="bottom-nav navbar-nav">
-                <ul class="flex-container">
-                    
-                    <li>
-                        <a class="nav-link font-weight-bold" href="ContactUs.php">Contact Us</a>
-                    </li>
-                </ul>
-            </div>
+                <div class="bottom-nav navbar-nav">
+                    <ul class="flex-container">
+                        <li>
+                            <a class="nav-link font-weight-bold" href="ContactUs.php">Contact Us</a>
+                        </li>
+                    </ul>
+                </div>
             </ul>
         </div>
     </div>
@@ -74,6 +75,5 @@ function confirmLogout() {
     if (confirm("Are you sure you want to logout?")) {
         window.location.href = "logout.php";
     }
-  }
+}
 </script>
-
