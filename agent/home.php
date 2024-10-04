@@ -27,6 +27,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'agent') {
     exit();
 }
 include '../lib/connection.php';
+include "../inc/agentnav.inc.php";
 ?>
     <title>Agent Home</title>
 </head>
