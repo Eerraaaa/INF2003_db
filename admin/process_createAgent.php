@@ -78,7 +78,7 @@ function handle_form_submission($conn) {
     // If there are errors, redirect to the error page
     if (!empty($errors)) {
         $_SESSION['form_errors'] = $errors;
-        header("Location: reg_error.php");
+        header("Location: create_error.php");
         exit();
     }
 
