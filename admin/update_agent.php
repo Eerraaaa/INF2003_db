@@ -6,6 +6,20 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 }
 
 include 'lib/connection.php';
+include "../inc/headform.inc.php";
+
+function get_towns($conn) {
+    $stmt = $conn->prepare("SELECT DISTINCT town FROM Location");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $towns = [];
+    while ($row = $result->fetch_assoc()) {
+        $towns[] = $row['town'];
+    }
+    return $towns;
+}
+$towns = get_towns($conn);
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update'])) {
@@ -89,43 +103,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Update Agent</title>
-    <link rel="stylesheet" href="../css/style.css">
+    <title>Update Agent Details</title>
+    <link rel="stylesheet" href="../css/home.css">
 </head>
 
 <body>
-    <h3>Update Agent Details</h3>
-    <form action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
+
+<main id="main-content">
+    <div class="container" style="margin-top: 220px;">
+
+    <h1>Update Agent Details</h1>
+
+    <?php
+      if (isset($_SESSION['form_errors'])) {
+        foreach ($_SESSION['form_errors'] as $error) {
+          echo "<div class='error-message'>$error</div>";
+        }
+        // Clear errors after displaying
+        unset($_SESSION['form_errors']);
+      }
+      ?>
+
+    <form id="registrationForm" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
+        <!-- Form fields -->
         <input type="hidden" name="agentID" value="<?php echo htmlspecialchars($agentID); ?>">
-        <div>
-            <label for="areaInCharge">Area In Charge:</label>
-            <input type="text" id="areaInCharge" name="areaInCharge" value="<?php echo htmlspecialchars($agent['areaInCharge']); ?>" required>
+        <div class="field">
+            <label for="fname">First Name <span class="required-asterisk">*</span></label>
+            <input type="text" id="fname" name="fname" value="<?php echo htmlspecialchars($agent['fname']); ?>" required>
         </div>
-        <div>
-            <label for="username">Username:</label>
-            <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($agent['username']); ?>" required>
+
+        <div class="field">
+            <label for="lname">Last Name</label>
+            <input type="text" id="lname" name="lname" value="<?php echo htmlspecialchars($agent['lname']); ?>">
         </div>
-        <div>
+        
+        <div class="field">
+          <label for="username">Username:</label>
+          <input type="text" id="username" name="username" value="<?php echo htmlspecialchars($agent['username']); ?>" required>
+        </div>
+
+        <div class="field">
             <label for="email">Email:</label>
             <input type="email" id="email" name="email" value="<?php echo htmlspecialchars($agent['email']); ?>" required>
         </div>
-        <div>
-            <label for="fname">First Name:</label>
-            <input type="text" id="fname" name="fname" value="<?php echo htmlspecialchars($agent['fname']); ?>" required>
-        </div>
-        <div>
-            <label for="lname">Last Name:</label>
-            <input type="text" id="lname" name="lname" value="<?php echo htmlspecialchars($agent['lname']); ?>" required>
-        </div>
-        <div>
-            <label for="phone_number">Phone Number:</label>
-            <input type="text" id="phone_number" name="phone_number" value="<?php echo htmlspecialchars($agent['phone_number']); ?>" required>
-        </div>
-        <div>
-            <button type="submit" name="update" class="btn btn-primary">Update</button>
-            <a href="home.php" class="btn btn-secondary">Back</a>
-        </div>
-    </form>
-</body>
 
+        <div class="field">
+            <label for="phone_number">Phone Number:</label>
+            <input type="text" id="phone_number" name="phone_number" required pattern="\d{8}" title="Phone number should be 8 digits" value="<?php echo htmlspecialchars($agent['phone_number']); ?>" required>
+        </div>
+
+        <div class="field">
+            <label for="areaInCharge">Area In Charge <span class="required-asterisk">*</span></label>
+            <select name="areaInCharge" id="areaInCharge" required>
+                <option value="">Select a town</option>
+                <?php
+                foreach ($towns as $town) {
+                    $selected = ($town === $agent['areaInCharge']) ? 'selected' : '';
+                    echo "<option value=\"" . htmlspecialchars($town) . "\" $selected>" . htmlspecialchars($town) . "</option>";
+                }
+                ?>
+            </select>
+        </div>
+
+        <div class="field btns">
+          <button type="submit" name="update" class="submit">Update</button>
+          <a href="home.php" class="submit">Back</a>
+        </div>
+      </form>
+      </main>
+      <script src="../js/formscript.js"></script>
+</body>
 </html>

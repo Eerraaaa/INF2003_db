@@ -1,6 +1,5 @@
 <?php
 session_start();
-
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
@@ -9,6 +8,18 @@ require '../lib/connection.php';
 // Function to sanitize input
 function sanitize_input($data) {
     return htmlspecialchars(stripslashes(trim($data)));
+}
+
+// Function to fetch distinct towns from the Location table (for validation purposes)
+function get_towns($conn) {
+    $stmt = $conn->prepare("SELECT DISTINCT town FROM Location");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $towns = [];
+    while ($row = $result->fetch_assoc()) {
+        $towns[] = $row['town'];
+    }
+    return $towns;
 }
 
 // Function to handle form submission
@@ -34,16 +45,25 @@ function handle_form_submission($conn) {
     $password = $_POST['pass'];
     $confirm_password = $_POST['confirm_password'];
 
+    // Email validation
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Invalid email format.';
     }
 
+    // Phone number validation
     if (strlen($phone_number) != 8 || !ctype_digit($phone_number)) {
         $errors[] = 'Phone number must be exactly 8 digits.';
     }
 
+    // Password match check
     if ($password !== $confirm_password) {
         $errors[] = 'Passwords do not match.';
+    }
+
+    // Ensure areaInCharge is a valid town from the Location table
+    $valid_towns = get_towns($conn);
+    if (!in_array($areaInCharge, $valid_towns)) {
+        $errors[] = 'Invalid area selected.';
     }
 
     // Check for unique email
@@ -101,4 +121,4 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     header("Location: create_error.php");
     exit();
 }
-?>
+

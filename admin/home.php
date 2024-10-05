@@ -9,7 +9,15 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 include "../inc/headproduct.inc.php";
 include 'lib/connection.php';
 
-// Use a JOIN to get agent and user details in a single query
+// Initialize the search variable
+$search = "";
+
+// Check if a search query was submitted
+if (isset($_POST['submit_search'])) {
+    $search = $_POST['search'];
+}
+
+// Use a JOIN to get agent and user details in a single query, with search functionality
 $query = "
     SELECT 
         a.agentID, a.areaInCharge, a.rating, 
@@ -19,7 +27,33 @@ $query = "
     WHERE u.userType = 'agent'
 ";
 
-$result = $conn->query($query);
+// If there is a search term, add a WHERE clause to filter results
+if (!empty($search)) {
+    $search = "%" . $conn->real_escape_string($search) . "%";
+    $query .= "
+        AND (
+            a.agentID LIKE ? OR 
+            a.areaInCharge LIKE ? OR 
+            a.rating LIKE ? OR 
+            u.username LIKE ? OR 
+            u.email LIKE ? OR 
+            u.fname LIKE ? OR 
+            u.lname LIKE ? OR 
+            u.phone_number LIKE ?
+        )
+    ";
+}
+
+// Prepare and execute the query
+$stmt = $conn->prepare($query);
+
+if (!empty($search)) {
+    // Bind search parameter for all fields
+    $stmt->bind_param("ssssssss", $search, $search, $search, $search, $search, $search, $search, $search);
+}
+
+$stmt->execute();
+$result = $stmt->get_result();
 
 if (!$result) {
     die("Database query failed: " . $conn->error);
@@ -44,18 +78,17 @@ if (!$result) {
     <br>
     <br>
 
-          <h3>List of Agents</h3>
+    <h3>List of Agents</h3>
           
     <div class="container-fluid">
-    <div class="row search-bar mt-3">
-        <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
-            <input type="search" class="form-control" placeholder="Search" aria-label="search" name="search">
-            <button class="btn btn-primary search" type="submit" name="submit_search">Search</button>
-        </form>
-    </div>
-    <!-- MAIN BODY -->
-    <div class="row">
-
+        <div class="row search-bar mt-3">
+            <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
+                <input type="search" class="form-control" placeholder="Search" aria-label="search" name="search" value="<?php echo htmlspecialchars($search); ?>">
+                <button class="btn btn-primary search" type="submit" name="submit_search">Search</button>
+            </form>
+        </div>
+        <!-- MAIN BODY -->
+        <div class="row">
             <!-- Agent Listings Table -->
             <div class="row mt-5">
                 <div class="col-12">
@@ -99,7 +132,7 @@ if (!$result) {
                                     echo "</tr>";
                                 }
                             } else {
-                                echo "<tr><td colspan='8'>No agents found</td></tr>";
+                                echo "<tr><td colspan='9'>No agents found</td></tr>";
                             }
                             ?>
                         </tbody>

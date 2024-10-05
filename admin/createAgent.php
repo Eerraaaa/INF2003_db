@@ -9,13 +9,21 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 include 'lib/connection.php';
 include "../inc/headform.inc.php";
 
-// Query for property table with search or location, sorting, and pagination
-$agentQuery = "SELECT * FROM Agent";
-$agentResult = $conn->query($agentQuery);
-
-if (!$agentResult) {
-    die("Database query failed: " . $conn->error);
+// Function to fetch distinct towns from the Location table
+function get_towns($conn) {
+    $stmt = $conn->prepare("SELECT DISTINCT town FROM Location");
+    $stmt->execute();
+    $result = $stmt->get_result();
+    $towns = [];
+    while ($row = $result->fetch_assoc()) {
+        $towns[] = $row['town'];
+    }
+    return $towns;
 }
+
+// Get towns for the dropdown
+$towns = get_towns($conn);
+
 ?>
 
 <!DOCTYPE html>
@@ -30,7 +38,7 @@ if (!$agentResult) {
 </head>
 
 <body>
-  
+
 <main id="main-content">
     <div class="container" style="margin-top: 220px;">
 
@@ -75,10 +83,16 @@ if (!$agentResult) {
         </div>
 
         <div class="field">
-          <label for="areaInCharge">Area In Charge <span class="required-asterisk">*</span></label>
-          <input type="text" id="areaInCharge" name="areaInCharge">
+        <label for="areaInCharge">Area In Charge <span class="required-asterisk">*</span></label>
+        <select name="areaInCharge" id="areaInCharge" required>
+            <option value="">Select a town</option>
+            <?php
+            foreach ($towns as $town) {
+                echo "<option value=\"" . htmlspecialchars($town) . "\">" . htmlspecialchars($town) . "</option>";
+            }
+            ?>
+        </select>
         </div>
-
 
         <div class="field">
           <label for="password">Password <span class="required-asterisk">*</span></label>
@@ -90,11 +104,11 @@ if (!$agentResult) {
           <input type="password" id="confirm_password" name="confirm_password" required>
         </div>
 
-
         <div class="field btns">
           <button type="submit" class="submit">Submit</button>
         </div>
       </form>
       </main>
       <script src="../js/formscript.js"></script>
+</body>
 </html>
