@@ -69,24 +69,24 @@ $conn->close();
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<link rel="shortcut icon" type="image/x-icon"  href="../img/favicon.png">
-<meta charset="utf-8">
-<link href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800" rel="stylesheet" type="text/css">
-<link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"
-  integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Bootstrap CSS-->
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-<!--Font Awesome-->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-<!-- Bootstrap JS-->
-<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
-<!-- ScrollReveal.js library -->
-<script src="https://unpkg.com/scrollreveal"></script>
-<script src="../js/home.js"></script>
-<title>Agent Home</title>
+    <link rel="shortcut icon" type="image/x-icon"  href="../img/favicon.png">
+    <meta charset="utf-8">
+    <link href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.7.0/css/all.css"
+      integrity="sha384-lZN37f5QGtY3VHgisS14W3ExzMWZxybE1SJSEsQp9S+oqd12jhcu+A56Ebc1zFSJ" crossorigin="anonymous">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- Bootstrap CSS-->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
+    <!--Font Awesome-->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <!-- Bootstrap JS-->
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <!-- ScrollReveal.js library -->
+    <script src="https://unpkg.com/scrollreveal"></script>
+    <script src="../js/home.js"></script>
+    <title>Agent Home</title>
 </head>
 <body>
     <div class="container mt-5" style="padding-top:100px;">
@@ -103,6 +103,7 @@ $conn->close();
                         <th>Town</th>
                         <th>Street Name</th>
                         <th>Block</th>
+                        <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -115,15 +116,20 @@ $conn->close();
                             <td><?php echo htmlspecialchars($row['streetName']); ?></td>
                             <td><?php echo htmlspecialchars($row['block']); ?></td>
                             <td>
-                                <?php if ($row['approvalStatus'] !== 'approved'): ?>
-                                    <!-- Approve Button with confirmation prompt -->
+                                <?php if ($row['approvalStatus'] === 'pending'): ?>
                                     <a href="approve_listing.php?id=<?php echo $row['propertyID']; ?>" 
                                     class="btn btn-success" 
                                     onclick="return confirm('Are you sure you want to approve this listing?');">
-                                    Approve
+                                        Approve
                                     </a>
-                                <?php else: ?>
+                                    <a href="reject_listing.php?id=<?php echo $row['propertyID']; ?>" 
+                                    class="btn btn-danger">
+                                        Reject
+                                    </a>
+                                <?php elseif ($row['approvalStatus'] === 'approved'): ?>
                                     <span class="text-success">Approved</span>
+                                <?php elseif ($row['approvalStatus'] === 'rejected'): ?>
+                                    <span class="text-danger">Rejected</span>
                                 <?php endif; ?>
                             </td>
                         </tr>
@@ -133,3 +139,4 @@ $conn->close();
         <?php endif; ?>
     </div>
 </body>
+</html>

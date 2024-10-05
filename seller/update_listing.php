@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
 
 // Fetch the property details for the given propertyID
 $propertyID = isset($_GET['id']) ? $_GET['id'] : null;
+$resubmit = isset($_GET['resubmit']) && $_GET['resubmit'] === 'true';
 
 if (!$propertyID) {
     echo "Invalid property ID.";
@@ -63,16 +64,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Update the property details
-        $sql = "UPDATE Property SET flatType = ?, locationID = ?, agentID = ?, resalePrice = ? WHERE propertyID = ?";
+        $sql = "UPDATE Property SET flatType = ?, locationID = ?, agentID = ?, resalePrice = ?, approvalStatus = ? WHERE propertyID = ?";
         $stmt = $conn->prepare($sql);
-        $stmt->bind_param('siidi', $flatType, $locationID, $agentID, $resalePrice, $propertyID);
+        $approvalStatus = $resubmit ? 'pending' : $row['approvalStatus'];
+        $stmt->bind_param('siidsi', $flatType, $locationID, $agentID, $resalePrice, $approvalStatus, $propertyID);
 
         if ($stmt->execute()) {
             echo "<div class='alert alert-success'>Listing updated successfully!</div>";
             // If the listing is successfully updated, redirect to the view listing page
             header("Location: seller_home.php");
             exit(); // Ensure that no further code is executed after the redirect
-
         } else {
             echo "<div class='alert alert-danger'>Error updating listing: " . $conn->error . "</div>";
         }
@@ -85,12 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <title>Update Listing</title>
+    <title><?php echo $resubmit ? 'Update and Resubmit Listing' : 'Update Listing'; ?></title>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
 </head>
 <body>
 <div class="container mt-5" style="padding-top:100px;">
-    <h2 class="text-center">Update Listing</h2>
+    <h2 class="text-center"><?php echo $resubmit ? 'Update and Resubmit Listing' : 'Update Listing'; ?></h2>
     <form method="POST">
         <!-- Flat Type Input -->
         <div class="form-group">
@@ -179,7 +180,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         </div>
 
         <!-- Submit Button -->
-        <button type="submit" class="btn btn-primary">Update Listing</button>
+        <button type="submit" class="btn btn-primary">
+            <?php echo $resubmit ? 'Update and Resubmit Listing' : 'Update Listing'; ?>
+        </button>
     </form>
 </div>
 </body>
