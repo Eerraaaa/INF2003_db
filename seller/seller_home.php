@@ -78,7 +78,10 @@
                 echo "<td>" . htmlspecialchars($row['town']) . "</td>";
                 echo "<td>" . htmlspecialchars($row['streetName']) . "</td>";
                 echo "<td>" . htmlspecialchars($row['block']) . "</td>";
-                echo "<td><a href='update_listing.php?id=" . $row['propertyID'] . "' class='btn btn-warning'>Update</a></td>";
+                echo "<td>
+                <a href='update_listing.php?id=" . $row['propertyID'] . "' class='btn btn-warning'>Update</a>
+                <a href='delete_listing.php?id=" . $row['propertyID'] . "' class='btn btn-danger' onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>
+                </td>";
                 echo "</tr>";
             }
 

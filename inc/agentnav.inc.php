@@ -20,18 +20,6 @@
 <script src="https://unpkg.com/scrollreveal"></script>
 <script src="../js/home.js"></script>
 
-<?php
-session_start();
-if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'agent') {
-    header("Location: unauthorized.php"); // Redirect to unauthorized access page
-    exit();
-}
-include '../lib/connection.php';
-?>
-    <title>Agent Home</title>
-</head>
-<body>
-    
 <nav class="navbar navbar-expand-md navbar-light fixed-top shrink bg-white" id="banner">
       <div class="container">
 
@@ -52,10 +40,6 @@ include '../lib/connection.php';
               </li>
               <li class="nav-item">
                 <a class="nav-link font-weight-bold" href="">Seller Transactions</a>
-              </li>
-              <li class="nav-item">
-                <!--Property that agent is currently in charge of-->
-                <a class="nav-link font-weight-bold" href="">Properties</a>
               </li>
               <li class="nav-item">
                 <!--Property that agent is currently in charge of-->
