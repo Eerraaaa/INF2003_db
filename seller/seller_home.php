@@ -14,6 +14,12 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
     exit();
 }
 
+// Display success message if set
+if (isset($_SESSION['success_message'])) {
+    echo "<div class='alert alert-success'>" . $_SESSION['success_message'] . "</div>";
+    unset($_SESSION['success_message']); // Unset the message after displaying it
+}
+
 // Assuming the sellerID is the ID of the currently logged-in user
 $sellerID = $_SESSION['userID'];
 
@@ -27,7 +33,8 @@ $sql = "SELECT
             Property.rejectComments,
             Location.town, 
             Location.streetName, 
-            Location.block
+            Location.block,
+            Property.agentID  
         FROM Property
         JOIN Location ON Property.locationID = Location.locationID
         WHERE Property.sellerID = ?";
@@ -50,13 +57,10 @@ $result = $stmt->get_result();
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Seller Home</title>
     <link rel="shortcut icon" type="image/x-icon" href="../img/favicon.png">
-    <!-- Bootstrap CSS-->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-    <!--Font Awesome-->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-    <!-- Bootstrap JS-->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
     <style>
         .status-approved { background-color: #d4edda; }
@@ -105,13 +109,14 @@ $result = $stmt->get_result();
                 echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectReason']) : '') . "</td>";
                 echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : '') . "</td>";
                 echo "<td>";
+                if ($row['approvalStatus'] === 'approved') {
+                    echo "<a href='create_review.php?agentID=" . $row['agentID'] . "&propertyID=" . $row['propertyID'] . "' class='btn btn-success'>Review Agent</a> ";
+                }
                 if ($row['approvalStatus'] === 'rejected') {
                     echo "<a href='update_listing.php?id=" . $row['propertyID'] . "&resubmit=true' class='btn btn-primary'>Update & Resubmit</a> ";
-                } else {
-                    echo "<a href='update_listing.php?id=" . $row['propertyID'] . "' class='btn btn-warning'>Update</a> ";
                 }
                 echo "<a href='delete_listing.php?id=" . $row['propertyID'] . "' class='btn btn-danger' onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>";
-                echo "</td>";
+                echo "</td>";                               
                 echo "</tr>";
             }
 
