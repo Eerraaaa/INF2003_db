@@ -46,7 +46,7 @@
                 <a class="nav-link font-weight-bold" href="">All Transactions</a>
               </li>
               <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="">My Account</a>
+                <a class="nav-link font-weight-bold" href="account.php">My Account</a>
               </li>
             </ul>
           </div>

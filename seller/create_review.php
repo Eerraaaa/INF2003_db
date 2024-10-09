@@ -26,8 +26,8 @@
     }
 
     include '../lib/connection.php';
-    include "../inc/agentnav.inc.php";
-    // Get the agentID and propertyID from the URL
+    include "../inc/sellernav.inc.php";
+        // Get the agentID and propertyID from the URL
     $agentID = isset($_GET['agentID']) ? intval($_GET['agentID']) : 0;
     // $propertyID = isset($_GET['propertyID']) ? intval($_GET['propertyID']) : 0;
 

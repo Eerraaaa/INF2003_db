@@ -24,7 +24,7 @@ if ($isLoggedIn) {
                     <?php if ($isLoggedIn): ?>
                         <a href="#"><i class="fa fa-user"></i><span><?php echo htmlspecialchars($userFirstName); ?></span></a>
                         <span class="account-dropdown-content">
-                            <a href="user_dashboard.php">Dashboard</a>
+                            <a href="../buyer/account.php">My Account</a>
                             <a href="#" onclick="confirmLogout()">Logout</a>
                         </span>
                     <?php else: ?>
@@ -36,9 +36,9 @@ if ($isLoggedIn) {
                     <?php endif; ?>
                 </li>
                 <?php if ($isBuyer): ?>
-                    <li><a href="wishlist.php"><i class="fa-solid fa-heart"></i><span>Wishlist</span></a></li>
-                    <li><a href="cart.php"><i class="fa-solid fa-cart-shopping"></i><span>My Cart</span></a></li>
-                    <li><a href="pasttransaction.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
+                    <li><a href="../buyer/wishlist.php"><i class="fa-solid fa-heart"></i><span>Wishlist</span></a></li>
+                    <li><a href="../buyer/cart.php"><i class="fa-solid fa-cart-shopping"></i><span>My Cart</span></a></li>
+                    <li><a href="../buyer/pasttransaction.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
                 <?php endif; ?>
             </ul>
         </nav>
