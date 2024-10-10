@@ -88,7 +88,7 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h2 class="text-center">Create Review for Agent #<?php echo $agentID; ?></h2>
+    <h2 class="text-center">Create Review for Agent <?php echo $agentID; ?></h2>
 
     <!-- Form for creating a new review -->
     <form method="post" class="mt-4">

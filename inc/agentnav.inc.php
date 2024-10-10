@@ -33,6 +33,9 @@
           <div class="collapse navbar-collapse" id="collapsibleNavbar">
             <ul class="navbar-nav ml-auto">
             <li class="nav-item">
+                <a class="nav-link font-weight-bold" href="../agent/agent_home.php">Homepage</a>
+              </li>
+            <li class="nav-item">
                 <a class="nav-link font-weight-bold" href="../agent/read_review.php">Agent Reviews</a>
               </li>
               <li class="nav-item">

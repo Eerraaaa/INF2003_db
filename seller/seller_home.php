@@ -23,21 +23,24 @@ if (isset($_SESSION['success_message'])) {
 // Assuming the sellerID is the ID of the currently logged-in user
 $sellerID = $_SESSION['userID'];
 
-// Fetch the seller's property listings along with location and status
+// Fetch the seller's property listings along with location, status, and review information
 $sql = "SELECT 
-            Property.propertyID,
+            MIN(Property.propertyID) as propertyID,
             Property.flatType, 
             Property.resalePrice, 
             Property.approvalStatus, 
-            Property.rejectReason,
-            Property.rejectComments,
+            MAX(Property.rejectReason) as rejectReason,
+            MAX(Property.rejectComments) as rejectComments,
             Location.town, 
             Location.streetName, 
             Location.block,
-            Property.agentID  
+            Property.agentID,
+            MAX(CASE WHEN agentReview.agentReviewID IS NOT NULL THEN 1 ELSE 0 END) AS is_reviewed
         FROM Property
         JOIN Location ON Property.locationID = Location.locationID
-        WHERE Property.sellerID = ?";
+        LEFT JOIN agentReview ON Property.agentID = agentReview.agentID AND agentReview.userID = ?
+        WHERE Property.sellerID = ?
+        GROUP BY Property.flatType, Property.resalePrice, Property.approvalStatus, Location.town, Location.streetName, Location.block, Property.agentID";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -45,7 +48,7 @@ if (!$stmt) {
     exit();
 }
 
-$stmt->bind_param('i', $sellerID);
+$stmt->bind_param('ii', $sellerID, $sellerID);
 $stmt->execute();
 $result = $stmt->get_result();
 ?>
@@ -110,7 +113,11 @@ $result = $stmt->get_result();
                 echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : '') . "</td>";
                 echo "<td>";
                 if ($row['approvalStatus'] === 'approved') {
-                    echo "<a href='create_review.php?agentID=" . $row['agentID'] . "&propertyID=" . $row['propertyID'] . "' class='btn btn-success'>Review Agent</a> ";
+                    if ($row['is_reviewed'] == 0) {
+                        echo "<a href='create_review.php?agentID=" . $row['agentID'] . "&propertyID=" . $row['propertyID'] . "' class='btn btn-success'>Review Agent</a> ";
+                    } else {
+                        echo "<span class='text-success'>Reviewed</span>";
+                    }
                 }
                 if ($row['approvalStatus'] === 'rejected') {
                     echo "<a href='update_listing.php?id=" . $row['propertyID'] . "&resubmit=true' class='btn btn-primary'>Update & Resubmit</a> ";

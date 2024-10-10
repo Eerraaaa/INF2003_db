@@ -45,9 +45,14 @@ include '../lib/connection.php';
           <div class="collapse navbar-collapse" id="collapsibleNavbar">
             <ul class="navbar-nav ml-auto">
               <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="seller_home.php">Properties</a>
+                <a class="nav-link font-weight-bold" href="seller_home.php">My Properties</a>
               </li>
               <li class="nav-item">
+                <a class="nav-link font-weight-bold" href="view_my_reviews.php">View Reviews</a>
+              </li>
+              <li class="nav-item">
+                <a class="nav-link font-weight-bold" href="view_allagent_reviews.php">View all Agent Reviews</a>
+              </li>
               <li class="nav-item">
                 <a class="nav-link font-weight-bold" href="create_listing.php">Sell Property</a>
               </li>
