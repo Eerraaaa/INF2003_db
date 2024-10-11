@@ -15,7 +15,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
 }
 
 // Fetch all agent reviews
-$reviewSql = "SELECT ar.*, CONCAT(u.fname, ' ', u.lname) AS agent_name
+$reviewSql = "SELECT ar.*, CONCAT(u.fname, ' ', u.lname) AS agent_name, AVG(ar.rating) OVER (PARTITION BY ar.agentID) AS avg_rating
               FROM agentReview ar
               JOIN Agent a ON ar.agentID = a.agentID
               JOIN Users u ON a.userID = u.userID
@@ -40,14 +40,28 @@ $reviewResult = $reviewStmt->get_result();
     <link rel="shortcut icon" type="image/x-icon" href="../img/favicon.png">
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
-    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
 </head>
 <body>
     <div class="container mt-5" style="padding-top:100px;">
         <h2 class="text-center">All Agent Reviews</h2>
         <?php
+        function displayStars($rating) {
+            $output = '';
+            // Full stars
+            for ($i = 1; $i <= floor($rating); $i++) {
+                $output .= '<i class="fas fa-star"></i>'; // Full star
+            }
+            // Half star if needed
+            if ($rating - floor($rating) >= 0.5) {
+                $output .= '<i class="fas fa-star-half-alt"></i>'; // Half star
+            }
+            // Empty stars
+            for ($i = ceil($rating); $i < 5; $i++) {
+                $output .= '<i class="far fa-star"></i>'; // Empty star
+            }
+            return $output;
+        }
+
         if ($reviewResult->num_rows > 0) {
             $currentAgent = null;
             while ($review = $reviewResult->fetch_assoc()) {
@@ -56,7 +70,9 @@ $reviewResult = $reviewStmt->get_result();
                         echo "</tbody></table></div>";
                     }
                     $currentAgent = $review['agentID'];
+                    // Display agent name and average rating with stars
                     echo "<h3 class='mt-4'>Reviews for " . htmlspecialchars($review['agent_name']) . "</h3>";
+                    echo "<p>Average Rating: " . displayStars($review['avg_rating']) . " (" . number_format($review['avg_rating'], 2) . " / 5)</p>";
                     echo "<div class='container mt-3'>";
                     echo "<table class='table table-bordered table-striped'>";
                     echo "<thead class='thead-dark'>";
@@ -84,6 +100,7 @@ $reviewResult = $reviewStmt->get_result();
     </div>
 </body>
 </html>
+
 <?php
 $reviewStmt->close();
 $conn->close();
