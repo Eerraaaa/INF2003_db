@@ -24,7 +24,7 @@ if ($isLoggedIn) {
                     <?php if ($isLoggedIn): ?>
                         <a href="#"><i class="fa fa-user"></i><span><?php echo htmlspecialchars($userFirstName); ?></span></a>
                         <span class="account-dropdown-content">
-                            <a href="../buyer/account.php">My Account</a>
+                            <a href="user_dashboard.php">Dashboard</a>
                             <a href="#" onclick="confirmLogout()">Logout</a>
                         </span>
                     <?php else: ?>
@@ -36,9 +36,8 @@ if ($isLoggedIn) {
                     <?php endif; ?>
                 </li>
                 <?php if ($isBuyer): ?>
-                    <li><a href="../buyer/wishlist.php"><i class="fa-solid fa-heart"></i><span>Wishlist</span></a></li>
-                    <li><a href="../buyer/cart.php"><i class="fa-solid fa-cart-shopping"></i><span>My Cart</span></a></li>
-                    <li><a href="../buyer/pasttransaction.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
+                    <li><a href="cart.php"><i class="fa-solid fa-cart-shopping"></i><span>My Cart</span></a></li>
+                    <li><a href="pasttransaction.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
                 <?php endif; ?>
             </ul>
         </nav>
@@ -46,26 +45,11 @@ if ($isLoggedIn) {
 </header>
 <div class="container-fluid">
     <div class="row search-bar mt-3">
-        <div class="col-2 col-lg-1">
-            <button class="navbar-toggler burgermenu" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <i class="fa-sharp fa-solid fa-bars"></i>
-            </button>
-        </div>
         <form class="col-8 col-lg-7" action="<?php echo $_SERVER['PHP_SELF']; ?>" method="post">
             <input type="search" class="form-control" placeholder="Search" aria-label="search" name="search">
             <button class="btn btn-primary search" type="submit" name="submit_search">Search</button>
         </form>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav">
-                <div class="bottom-nav navbar-nav">
-                    <ul class="flex-container">
-                        <li>
-                            <a class="nav-link font-weight-bold" href="ContactUs.php">Contact Us</a>
-                        </li>
-                    </ul>
-                </div>
-            </ul>
-        </div>
+        
     </div>
 </div>
 <link rel="stylesheet" href="css/searchnavStyle.css">

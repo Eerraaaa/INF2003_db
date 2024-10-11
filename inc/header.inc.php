@@ -14,9 +14,6 @@
               <li class="nav-item">
                 <a class="nav-link font-weight-bold" href="../HTML/ourgyms.html">Properties</a>
               </li>
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="../HTML/Contact_Us.html">Contact Us</a>
-              </li>
             </ul>
           </div>
         </div>

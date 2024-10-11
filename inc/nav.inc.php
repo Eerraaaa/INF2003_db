@@ -40,7 +40,6 @@ if (isset($_SESSION['userID'])) {
                                 <a href="#" onclick="confirmLogout()">Logout</a>
                             </div>
                           </li>
-                          <li><a href="wishlist.php"><i class="fa fa-heart"></i><span>Wishlist</span></a></li>
                           <li><a href="/cart.php"><i class="fa fa-shopping-cart"></i><span>My Cart</span></a></li>
                         <?php else: ?>
                           <li class="account-dropdown">
@@ -50,8 +49,6 @@ if (isset($_SESSION['userID'])) {
                                 <a href="../user_management/newlogin.php">Login</a>
                             </div>
                           </li>
-                          <li><a href="../user_management/newlogin.php"><i class="fa fa-heart"></i><span>Wishlist</span></a></li>
-                          <li><a href="../user_management/newlogin.php"><i class="fa fa-shopping-cart"></i><span>My Cart</span></a></li>
                         <?php endif; ?>
                 <!-- <li><a href="#">SGD&nbsp;<i class="fa fa-chevron-down"></i></a></li> -->
                 </ul>
@@ -66,10 +63,6 @@ if (isset($_SESSION['userID'])) {
           <ul class="navbar-nav ms-auto me-0">
             <li class="nav-item">
               <a class="nav-link font-weight-bold" href="../index.php">Properties</a>
-            </li>
-            
-            <li class="nav-item">
-              <a class="nav-link font-weight-bold" href="../ContactUs.php">Contact Us</a>
             </li>
           </ul>
       </div>
