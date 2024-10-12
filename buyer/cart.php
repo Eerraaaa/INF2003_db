@@ -1,7 +1,8 @@
 <?php
 session_start();
 include '../lib/connection.php';
-include '../inc/searchnav.inc.php';
+#include '../inc/searchnav.inc.php';
+include '../inc/head.inc.php';
 
 // Check if user is logged in and is a buyer
 if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'buyer') {
@@ -40,7 +41,8 @@ if (isset($_POST['remove_from_cart'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Cart</title>
-    <link rel="stylesheet" href="../css/styles.css"> <!-- Adjust the path as needed -->
+    <link rel="stylesheet" href="../css/cart.css">
+    
 </head>
 <body>
     <div class="container">
