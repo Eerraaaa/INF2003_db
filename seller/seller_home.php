@@ -23,7 +23,7 @@ if (isset($_SESSION['success_message'])) {
 // Assuming the sellerID is the ID of the currently logged-in user
 $sellerID = $_SESSION['userID'];
 
-// Fetch the seller's property listings along with location, status, and review information
+// Fetch the seller's property listings along with location, status, review information, and agent name
 $sql = "SELECT 
             MIN(Property.propertyID) as propertyID,
             Property.flatType, 
@@ -35,12 +35,15 @@ $sql = "SELECT
             Location.streetName, 
             Location.block,
             Property.agentID,
-            MAX(CASE WHEN agentReview.agentReviewID IS NOT NULL THEN 1 ELSE 0 END) AS is_reviewed
+            MAX(CASE WHEN agentReview.agentReviewID IS NOT NULL THEN 1 ELSE 0 END) AS is_reviewed,
+            Users.username AS agent_name
         FROM Property
         JOIN Location ON Property.locationID = Location.locationID
         LEFT JOIN agentReview ON Property.agentID = agentReview.agentID AND agentReview.userID = ?
+        LEFT JOIN Agent ON Property.agentID = Agent.agentID
+        LEFT JOIN Users ON Agent.userID = Users.userID
         WHERE Property.sellerID = ?
-        GROUP BY Property.flatType, Property.resalePrice, Property.approvalStatus, Location.town, Location.streetName, Location.block, Property.agentID";
+        GROUP BY Property.flatType, Property.resalePrice, Property.approvalStatus, Location.town, Location.streetName, Location.block, Property.agentID, Users.username";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
@@ -86,6 +89,7 @@ $result = $stmt->get_result();
             echo "<th>Town</th>";
             echo "<th>Street Name</th>";
             echo "<th>Block</th>";
+            echo "<th>Agent Name</th>";
             echo "<th>Rejected Reason</th>";
             echo "<th>Rejected Comments</th>";
             echo "<th>Actions</th>";
@@ -109,6 +113,7 @@ $result = $stmt->get_result();
                 echo "<td>" . htmlspecialchars($row['town']) . "</td>";
                 echo "<td>" . htmlspecialchars($row['streetName']) . "</td>";
                 echo "<td>" . htmlspecialchars($row['block']) . "</td>";
+                echo "<td>" . htmlspecialchars($row['agent_name']) . "</td>";
                 echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectReason']) : '') . "</td>";
                 echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : '') . "</td>";
                 echo "<td>";

@@ -21,13 +21,13 @@ $stmtAgent = $conn->prepare($sqlAgent);
 if (!$stmtAgent) {
     $errorMsg = "Error preparing the agent query: " . $conn->error;
 } else {
-    $stmtAgent->bind_param('i', $userID); // Bind userID as an integer
+    $stmtAgent->bind_param('i', $userID);
     $stmtAgent->execute();
     $resultAgent = $stmtAgent->get_result();
 
     if ($resultAgent->num_rows > 0) {
         $agentRow = $resultAgent->fetch_assoc();
-        $agentID = $agentRow['agentID']; // Get the agentID from the result
+        $agentID = $agentRow['agentID'];
     } else {
         $errorMsg = "No agent found for the logged-in user.";
     }
@@ -38,9 +38,11 @@ if (!$stmtAgent) {
 if ($agentID) {
     $sqlListings = "
     SELECT Property.propertyID, Property.flatType, Property.resalePrice, Property.approvalStatus, 
-           Location.town, Location.streetName, Location.block
+           Location.town, Location.streetName, Location.block,
+           Users.fname AS seller_fname, Users.lname AS seller_lname
     FROM Property
     JOIN Location ON Property.locationID = Location.locationID
+    JOIN Users ON Property.sellerID = Users.userID
     WHERE Property.agentID = ?
     ";
 
@@ -48,14 +50,13 @@ if ($agentID) {
     if (!$stmtListings) {
         $errorMsg = "Error preparing the listings query: " . $conn->error;
     } else {
-        $stmtListings->bind_param('i', $agentID); // Bind agentID as an integer
+        $stmtListings->bind_param('i', $agentID);
         $stmtListings->execute();
         $resultListings = $stmtListings->get_result();
 
         if ($resultListings->num_rows > 0) {
-            // Fetch all results
             while ($row = $resultListings->fetch_assoc()) {
-                $listings[] = $row; // Store the results in the $listings array
+                $listings[] = $row;
             }
         } else {
             $errorMsg = "You are not linked to any property listings.";
@@ -103,6 +104,7 @@ $conn->close();
                         <th>Town</th>
                         <th>Street Name</th>
                         <th>Block</th>
+                        <th>Seller</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -115,6 +117,7 @@ $conn->close();
                             <td><?php echo htmlspecialchars($row['town']); ?></td>
                             <td><?php echo htmlspecialchars($row['streetName']); ?></td>
                             <td><?php echo htmlspecialchars($row['block']); ?></td>
+                            <td><?php echo htmlspecialchars($row['seller_fname'] . ' ' . $row['seller_lname']); ?></td>
                             <td>
                                 <?php if ($row['approvalStatus'] === 'pending'): ?>
                                     <a href="approve_listing.php?id=<?php echo $row['propertyID']; ?>" 

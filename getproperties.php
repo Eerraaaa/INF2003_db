@@ -5,13 +5,13 @@ $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
 $sortBy = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
 $dealCategory = isset($_GET['deal_category']) ? $_GET['deal_category'] : '';
-$flatType = isset($_GET['flat_type']) ? $_GET['flat_type'] : 'all'; // Capture flat type
+$flatType = isset($_GET['flat_type']) ? $_GET['flat_type'] : 'all';
 $search = isset($_GET['search']) ? $_GET['search'] : '';
 
 $itemsPerPage = 50;
 $offset = ($page - 1) * $itemsPerPage;
 
-$whereClause = [];
+$whereClause = ["p.approvalStatus = 'approved'"]; // Only show approved properties
 $params = [];
 
 // Filter by availability
@@ -58,7 +58,7 @@ if (!empty($search)) {
     $whereClause[] = "(" . implode(" AND ", $searchClauses) . ")";
 }
 
-$whereClause = !empty($whereClause) ? "WHERE " . implode(" AND ", $whereClause) : "";
+$whereClause = implode(" AND ", $whereClause);
 
 // Sorting
 $orderBy = "ORDER BY ";
@@ -86,11 +86,11 @@ $query = "SELECT p.propertyID, p.flatType,
                  p.availability
           FROM Property p
           JOIN Location l ON p.locationID = l.locationID
-          $whereClause
+          WHERE $whereClause
           $orderBy
           LIMIT ? OFFSET ?";
 
-$countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID $whereClause";
+$countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID WHERE $whereClause";
 
 $stmt = $conn->prepare($query);
 $countStmt = $conn->prepare($countQuery);
@@ -128,3 +128,4 @@ $response = [
 
 header('Content-Type: application/json');
 echo json_encode($response);
+?>

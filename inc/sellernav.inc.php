@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
 <link rel="shortcut icon" type="image/x-icon"  href="../img/favicon.png">
 <meta charset="utf-8">
 <link href="http://fonts.googleapis.com/css?family=Open+Sans:400,300,600,700,800" rel="stylesheet" type="text/css">
@@ -34,39 +33,31 @@ include '../lib/connection.php';
     
 <nav class="navbar navbar-expand-md navbar-light fixed-top shrink bg-white" id="banner">
       <div class="container">
+        <div class="d-flex align-items-center">
+          <!-- Modified Seller title -->
+          <span class="navbar-brand font-weight-bold text-dark mb-0 mr-2" style="font-size: 2.5rem;">Seller</span>
+          
+          <!-- Navbar links start-->
+          <div id="nav">
+            <div class="navbar-nav">
+              <a class="nav-link font-weight-bold" href="create_listing.php">Sell Property</a>
+              <a class="nav-link font-weight-bold" href="seller_home.php">My Properties</a>
+              <a class="nav-link font-weight-bold" href="view_my_reviews.php">View Reviews</a>
+              <a class="nav-link font-weight-bold" href="view_allagent_reviews.php">View all Agent Reviews</a>
+              <a class="nav-link font-weight-bold" href="">All Transactions</a>
+              <a class="nav-link font-weight-bold" href="account.php">My Account</a>
+            </div>
+          </div>
+          <!-- Navbar links end-->
+        </div>
 
         <!-- Toggler/collapsibe Button start-->
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#collapsibleNavbar">
           <span class="navbar-toggler-icon" id="navbar-toggler" title="navbar-toggler"></span>
         </button>
-        <!-- Toggler/collapsibe Button end-->
-        <!-- Navbar links start-->
-        <div id="nav">
-          <div class="collapse navbar-collapse" id="collapsibleNavbar">
-            <ul class="navbar-nav ml-auto">
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="seller_home.php">My Properties</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="view_my_reviews.php">View Reviews</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="view_allagent_reviews.php">View all Agent Reviews</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="create_listing.php">Sell Property</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="">All Transactions</a>
-              </li>
-              <li class="nav-item">
-                <a class="nav-link font-weight-bold" href="account.php">My Account</a>
-              </li>
-            </ul>
-          </div>
-          <a href="../logout.php">(logout)</a>
-        </div>
-          <!-- Navbar links end-->
+        
+        
+        <a href="../logout.php" class="ml-auto">(logout)</a>
       </div>
     </nav>
 </body>
