@@ -39,7 +39,7 @@ if ($user && password_verify($password, $user['password'])) {
 
     // Check if the user is an admin and redirect accordingly
     if ($user['userType'] === 'admin') {  // Assuming userType is a string for admin
-        header("Location: ../admin/home.php");
+        header("Location: ../admin/admin_home.php");
         exit();
     } else if ($user['userType'] === 'agent') {
         header("Location: ../agent/agent_home.php");

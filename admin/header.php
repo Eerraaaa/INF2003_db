@@ -25,7 +25,7 @@
 	<div class="sidenav" id="sidenav">
 		<ul class="navbar-nav">
 		   <li class="nav-item">
-				<a class="nav-link d" href="home.php">List of Agents</a>
+				<a class="nav-link d" href="admin_home.php">List of Agents</a>
 			</li>
 			<li class="nav-item">
 				<a class="nav-link d" href="createAgent.php">Create New Agent</a>
