@@ -73,7 +73,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     <div class="category">
                         <h4>Buyer Actions</h4>
                         <ul>
-                            
+
                             <li><a href="buyer/past_trans.php">Past Transactions</a></li>
                         </ul>
                     </div>
@@ -202,7 +202,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     .catch(error => console.error('Error updating cart count:', error));
             }
 
-        
+        <?php endif; ?>
 
         document.addEventListener('DOMContentLoaded', function() {
             const sortSelect = document.getElementById('filter-type');
@@ -263,7 +263,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                 }
             }
 
-            <?php endif; ?>
+
 
             function updatePagination(data) {
                 paginationInfo.textContent = `${data.start} - ${data.end} of ${data.total} properties`;
