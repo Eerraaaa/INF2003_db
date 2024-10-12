@@ -118,16 +118,17 @@ $result = $stmt->get_result();
                 echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : '') . "</td>";
                 echo "<td>";
                 if ($row['approvalStatus'] === 'approved') {
+                    // If approved, show Review Agent button or Reviewed status
                     if ($row['is_reviewed'] == 0) {
                         echo "<a href='create_review.php?agentID=" . $row['agentID'] . "&propertyID=" . $row['propertyID'] . "' class='btn btn-success'>Review Agent</a> ";
                     } else {
                         echo "<span class='text-success'>Reviewed</span>";
                     }
+                } elseif ($row['approvalStatus'] === 'pending') {
+                    // If pending, show Update and Delete buttons
+                    echo "<a href='update_listing.php?id=" . $row['propertyID'] . "' class='btn btn-primary'>Update</a> ";
+                    echo "<a href='delete_listing.php?id=" . $row['propertyID'] . "' class='btn btn-danger' onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>";
                 }
-                if ($row['approvalStatus'] === 'rejected') {
-                    echo "<a href='update_listing.php?id=" . $row['propertyID'] . "&resubmit=true' class='btn btn-primary'>Update & Resubmit</a> ";
-                }
-                echo "<a href='delete_listing.php?id=" . $row['propertyID'] . "' class='btn btn-danger' onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>";
                 echo "</td>";                               
                 echo "</tr>";
             }
