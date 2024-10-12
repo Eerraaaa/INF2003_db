@@ -30,6 +30,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
 
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <title><?php echo $pageTitle; ?></title>
     <link rel="stylesheet" href="css/product.css">
@@ -42,7 +43,9 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
 
         <div class="row mt-3">
             <div class="col-lg-2"></div>
-            <div class="col-lg-10 title"><h2><?php echo $pageTitle; ?></h2></div>
+            <div class="col-lg-10 title">
+                <h2><?php echo $pageTitle; ?></h2>
+            </div>
         </div>
 
         <!-- MAIN BODY -->
@@ -67,13 +70,13 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     </ul>
                 </div>
                 <?php if ($isBuyer): ?>
-                <div class="category">
-                    <h4>Buyer Actions</h4>
-                    <ul>
-                        <li><a href="wishlist.php">My Wishlist</a></li>
-                        <li><a href="past_transactions.php">Past Transactions</a></li>
-                    </ul>
-                </div>
+                    <div class="category">
+                        <h4>Buyer Actions</h4>
+                        <ul>
+                            <li><a href="wishlist.php">My Wishlist</a></li>
+                            <li><a href="past_transactions.php">Past Transactions</a></li>
+                        </ul>
+                    </div>
                 <?php endif; ?>
             </div>
 
@@ -130,7 +133,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                                     <th>Transaction Date</th>
                                     <th>Availability</th>
                                     <?php if ($isBuyer): ?>
-                                    <th>Actions</th>
+                                        <th>Actions</th>
                                     <?php endif; ?>
                                 </tr>
                             </thead>
@@ -157,6 +160,50 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
     <?php include "inc/footer.inc.php"; ?>
 
     <script>
+        <?php if ($isBuyer): ?>
+
+            function addToCart(propertyId) {
+                console.log('Adding property to cart:', propertyId); // Debug log
+                fetch('buyer/add_to_cart.php', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: 'propertyID=' + encodeURIComponent(propertyId)
+                    })
+                    .then(response => {
+                        console.log('Response status:', response.status); // Debug log
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Response data:', data); // Debug log
+                        if (data.success) {
+                            alert(data.message);
+                            updateCartCount();
+                        } else {
+                            alert(data.message || 'An error occurred while adding the property to the cart.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while adding the property to the cart: ' + error.message);
+                    });
+            }
+
+            // Add this function to update the cart count in the UI
+            function updateCartCount() {
+                console.log('Updating cart count'); // Debug log
+                fetch('buyer/get_cart_count.php')
+                    .then(response => response.json())
+                    .then(data => {
+                        console.log('Cart count data:', data); // Debug log
+                        document.getElementById('cartCount').textContent = data.count;
+                    })
+                    .catch(error => console.error('Error updating cart count:', error));
+            }
+
+        
+
         document.addEventListener('DOMContentLoaded', function() {
             const sortSelect = document.getElementById('filter-type');
             const propertyTypeSelect = document.getElementById('property-type');
@@ -176,7 +223,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
 
             function fetchProperties() {
                 const url = `getproperties.php?filter=${currentFilter}&flat_type=${currentFlatType}&sort=${currentSort}&page=${currentPage}&deal_category=${currentLocation}&search=${encodeURIComponent(currentSearch)}`;
-                
+
                 fetch(url)
                     .then(response => response.json())
                     .then(data => {
@@ -185,6 +232,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     })
                     .catch(error => console.error('Error:', error));
             }
+
 
             function updatePropertyTable(properties) {
                 propertyTableBody.innerHTML = '';
@@ -202,10 +250,10 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                                 <?php if ($isBuyer): ?>
                                 <td>
                                     ${property.availability === 'available' 
-                                        ? `<button class="btn btn-sm btn-primary add-to-cart" data-property-id="${property.propertyID}">
-                                             <i class="fas fa-cart-plus"></i> Add to Cart
-                                           </button>`
-                                        : ''}
+                                        ? `<button onclick="addToCart(${property.propertyID})" class="btn btn-sm btn-primary add-to-cart">
+                                                <i class="fas fa-cart-plus"></i> Add to Cart
+                                            </button>`
+                                        : 'Not Available'}
                                 </td>
                                 <?php endif; ?>
                             </tr>
@@ -213,21 +261,13 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                         propertyTableBody.innerHTML += row;
                     });
                 }
-
-                <?php if ($isBuyer): ?>
-                // Add event listeners to the "Add to Cart" buttons
-                document.querySelectorAll('.add-to-cart').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const propertyId = this.getAttribute('data-property-id');
-                        addToCart(propertyId);
-                    });
-                });
-                <?php endif; ?>
             }
+
+            <?php endif; ?>
 
             function updatePagination(data) {
                 paginationInfo.textContent = `${data.start} - ${data.end} of ${data.total} properties`;
-                
+
                 paginationControls.innerHTML = '';
                 if (data.totalPages > 1) {
                     let paginationHTML = '';
@@ -277,14 +317,6 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                 }
             }
 
-            <?php if ($isBuyer): ?>
-            function addToCart(propertyId) {
-                // Implement add to cart functionality
-                console.log(`Adding property ${propertyId} to cart`);
-                alert(`Property ${propertyId} added to cart!`);
-            }
-            <?php endif; ?>
-
             propertyTypeSelect.addEventListener('change', function() {
                 currentFilter = this.value;
                 currentPage = 1;
@@ -321,14 +353,19 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                 currentLocation = '';
                 currentPage = 1;
                 fetchProperties();
-                
+
                 locationLinks.forEach(link => link.classList.remove('active'));
                 document.querySelector('.Deals a[data-location=""]').classList.add('active');
             });
 
             // Initial fetch
             fetchProperties();
+            <?php if ($isBuyer): ?>
+                updateCartCount();
+            <?php endif; ?>
+
         });
     </script>
 </body>
+
 </html>

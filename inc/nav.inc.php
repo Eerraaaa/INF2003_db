@@ -40,7 +40,7 @@ if (isset($_SESSION['userID'])) {
                                 <a href="#" onclick="confirmLogout()">Logout</a>
                             </div>
                           </li>
-                          <li><a href="/cart.php"><i class="fa fa-shopping-cart"></i><span>My Cart</span></a></li>
+                          <li><a href="buyer/cart.php"><i class="fa fa-shopping-cart"></i><span>My Cart</span></a></li>
                         <?php else: ?>
                           <li class="account-dropdown">
                             <a href="#"><i class="fa fa-user"></i><span>Account</span></a>

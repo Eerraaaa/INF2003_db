@@ -79,7 +79,7 @@ switch ($sortBy) {
 }
 
 // Fetch query
-$query = "SELECT p.flatType, 
+$query = "SELECT p.propertyID, p.flatType, 
                  CONCAT(l.town, ' ', l.streetName, ' Block ', l.block) AS locationName,
                  p.resalePrice, 
                  p.transactionDate,
