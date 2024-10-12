@@ -41,12 +41,12 @@ if (isset($_POST['purchase'])) {
     $conn->begin_transaction();
 
     try {
-        // Update each property in the cart to 'sold' and set the transaction date
+        // Update each property in the cart to 'sold', set the transaction date, and update the sellerID
         $updateSql = "UPDATE Property 
-                      SET availability = 'sold', transactionDate = CURDATE() 
+                      SET availability = 'sold', transactionDate = CURDATE(), sellerID = ?
                       WHERE propertyID IN (SELECT propertyID FROM Cart WHERE userID = ?)";
         $updateStmt = $conn->prepare($updateSql);
-        $updateStmt->bind_param("i", $userID);
+        $updateStmt->bind_param("ii", $userID, $userID);
         $updateStmt->execute();
 
         // Clear the cart

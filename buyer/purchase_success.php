@@ -12,6 +12,7 @@
         <p>Thank you for your purchase!</p>
         <p>Your total amount is: $<?php echo htmlspecialchars($_GET['total_price']); ?></p>
         <a href="../index.php" class="btn btn-primary">Continue Shopping</a>
+        <a href="past_trans.php" class="btn btn-secondary">View Your Transactions</a>
     </div>
 </body>
 </html>
