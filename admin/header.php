@@ -30,9 +30,6 @@
 			<li class="nav-item">
 				<a class="nav-link d" href="createAgent.php">Create New Agent</a>
 			</li>
-			<li class="nav-item">
-				<a class="nav-link d" href="contactus_submissions.php">Contact Us Submissions</a>
-			</li>
 		</ul>
 	</div>
 	

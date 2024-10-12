@@ -44,7 +44,6 @@ include '../lib/connection.php';
               <a class="nav-link font-weight-bold" href="seller_home.php">My Properties</a>
               <a class="nav-link font-weight-bold" href="view_my_reviews.php">View Reviews</a>
               <a class="nav-link font-weight-bold" href="view_allagent_reviews.php">View all Agent Reviews</a>
-              <a class="nav-link font-weight-bold" href="">All Transactions</a>
               <a class="nav-link font-weight-bold" href="account.php">My Account</a>
             </div>
           </div>

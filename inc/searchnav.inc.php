@@ -24,7 +24,7 @@ if ($isLoggedIn) {
                     <?php if ($isLoggedIn): ?>
                         <a href="#"><i class="fa fa-user"></i><span><?php echo htmlspecialchars($userFirstName); ?></span></a>
                         <span class="account-dropdown-content">
-                            <a href="user_dashboard.php">Dashboard</a>
+                            <a href="../buyer/account.php">Account</a>
                             <a href="#" onclick="confirmLogout()">Logout</a>
                         </span>
                     <?php else: ?>

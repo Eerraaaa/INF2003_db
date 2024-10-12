@@ -78,17 +78,26 @@ switch ($sortBy) {
         break;
 }
 
-// Fetch query
 $query = "SELECT p.propertyID, p.flatType, 
                  CONCAT(l.town, ' ', l.streetName, ' Block ', l.block) AS locationName,
                  p.resalePrice, 
                  p.transactionDate,
-                 p.availability
+                 p.availability,
+                 COALESCE(u.fname, '') AS agentName,
+                 COALESCE(u.phone_number, '') AS agentPhone,
+                 COALESCE(u.email, '') AS agentEmail
           FROM Property p
           JOIN Location l ON p.locationID = l.locationID
+          LEFT JOIN Agent a ON p.agentID = a.agentID  -- Use LEFT JOIN instead of JOIN
+          LEFT JOIN Users u ON a.userID = u.userID
           WHERE $whereClause
           $orderBy
           LIMIT ? OFFSET ?";
+
+
+// Updated Count Query remains the same as before
+$countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID WHERE $whereClause";
+
 
 $countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID WHERE $whereClause";
 

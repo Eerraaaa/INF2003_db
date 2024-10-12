@@ -125,18 +125,22 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     <div class="col-12">
                         <h3>Property Listings</h3>
                         <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Flat Type</th>
-                                    <th>Location</th>
-                                    <th>Resale Price</th>
-                                    <th>Transaction Date</th>
-                                    <th>Availability</th>
-                                    <?php if ($isBuyer): ?>
-                                        <th>Actions</th>
-                                    <?php endif; ?>
-                                </tr>
-                            </thead>
+                        <thead>
+                            <tr>
+                                <th>Flat Type</th>
+                                <th>Location</th>
+                                <th>Resale Price</th>
+                                <th>Transaction Date</th>
+                                <th>Availability</th>
+                                <th>Agent Name</th> <!-- New column for Agent Name -->
+                                <th>Agent Phone Number</th>
+                                <th>Agent Email</th>
+                                <?php if ($isBuyer): ?>
+                                    <th>Actions</th>
+                                <?php endif; ?>
+                            </tr>
+                        </thead>
+
                             <tbody id="propertyTableBody">
                                 <!-- Properties will be populated here via JavaScript -->
                             </tbody>
@@ -237,7 +241,7 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
             function updatePropertyTable(properties) {
                 propertyTableBody.innerHTML = '';
                 if (properties.length === 0) {
-                    propertyTableBody.innerHTML = '<tr><td colspan="<?php echo $isBuyer ? '6' : '5'; ?>">No properties found</td></tr>';
+                    propertyTableBody.innerHTML = '<tr><td colspan="<?php echo $isBuyer ? '8' : '7'; ?>">No properties found</td></tr>';
                 } else {
                     properties.forEach(property => {
                         const row = `
@@ -247,6 +251,9 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                                 <td>$${Number(property.resalePrice).toLocaleString()}</td>
                                 <td>${property.transactionDate}</td>
                                 <td>${property.availability}</td>
+                                <td>${property.agentName || ''}</td> 
+                                <td>${property.agentPhone || ''}</td>
+                                <td>${property.agentEmail || ''}</td>
                                 <?php if ($isBuyer): ?>
                                 <td>
                                     ${property.availability === 'available' 
@@ -262,6 +269,8 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     });
                 }
             }
+
+
 
 
 

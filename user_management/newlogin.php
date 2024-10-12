@@ -71,9 +71,6 @@
                             <input required maxlength="45" type="password" id="pwd" name="pwd" class="form-control" placeholder="Enter password">
                         </div>
                         <div class="mb-3">
-                            <a href='forgot_pwd.php' style="color: darkblue; text-decoration: underline;">Forgot Password?</a>
-                        </div>
-                        <div class="mb-3">
                             <button type="submit" class="btn btn-primary">Sign In</button>
                         </div>
                     </form>

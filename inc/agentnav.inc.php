@@ -39,10 +39,8 @@
             <ul class="navbar-nav justify-content-between">
               <li class="nav-item"><a class="nav-link font-weight-bold" href="../agent/agent_home.php">Homepage</a></li>
               <li class="nav-item"><a class="nav-link font-weight-bold" href="../agent/read_review.php">Agent Reviews</a></li>
-              <li class="nav-item"><a class="nav-link font-weight-bold" href=".php">Buyer Transactions</a></li>
-              <li class="nav-item"><a class="nav-link font-weight-bold" href="">Seller Transactions</a></li>
+              <li class="nav-item"><a class="nav-link font-weight-bold" href="../agent/buyer_transaction.php">Buyer Transactions</a></li>
               <li class="nav-item"><a class="nav-link font-weight-bold" href="../agent/view_locationIncharge.php">View location in charge</a></li>
-              <li class="nav-item"><a class="nav-link font-weight-bold" href="">All Transactions</a></li>
               <li class="nav-item"><a class="nav-link font-weight-bold" href="account.php">My Account</a></li>
             </ul>
           </div>
