@@ -12,6 +12,9 @@ include 'lib/connection.php';
 <div class="container" style="padding-top: 150px;">
     <h2>Median Property Prices by Location</h2>
 
+       <!-- Link to go back to report.php -->
+       <a href="report.php" class="btn btn-secondary mb-3">Back to Reports</a>
+
     <!-- Sorting Dropdown Form -->
     <form method="post">
         <label for="median_sort">Sort By:</label>
