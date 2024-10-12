@@ -37,7 +37,7 @@ if ($isLoggedIn) {
                 </li>
                 <?php if ($isBuyer): ?>
                     <li><a href="buyer/cart.php"><i class="fa-solid fa-cart-shopping"></i><span>My Cart(<span id="cartCount">0</span>)</span></a></li>
-                    <li><a href="pasttransaction.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
+                    <li><a href="buyer/past_trans.php"><i class="fa-solid fa-clock-rotate-left"></i></i><span>Past Trasnsaction</span></a></li>
                 <?php endif; ?>
             </ul>
         </nav>

@@ -73,8 +73,8 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
                     <div class="category">
                         <h4>Buyer Actions</h4>
                         <ul>
-                            <li><a href="wishlist.php">My Wishlist</a></li>
-                            <li><a href="past_transactions.php">Past Transactions</a></li>
+                            
+                            <li><a href="buyer/past_trans.php">Past Transactions</a></li>
                         </ul>
                     </div>
                 <?php endif; ?>
