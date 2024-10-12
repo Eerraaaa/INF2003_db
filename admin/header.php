@@ -30,6 +30,9 @@
 			<li class="nav-item">
 				<a class="nav-link d" href="createAgent.php">Create New Agent</a>
 			</li>
+			<li class="nav-item">
+				<a class="nav-link d" href="report.php">Report Analytics</a>
+			</li>
 		</ul>
 	</div>
 	
