@@ -1,7 +1,6 @@
 <?php
 session_start();
 include '../lib/connection.php';
-#include '../inc/searchnav.inc.php';
 include '../inc/head.inc.php';
 
 // Check if user is logged in and is a buyer
@@ -36,15 +35,16 @@ if (isset($_POST['remove_from_cart'])) {
 
 // Handle purchase
 if (isset($_POST['purchase'])) {
-    // You can also validate and check the total_price if needed
     $totalPrice = $_POST['total_price'];
 
     // Begin transaction
     $conn->begin_transaction();
 
     try {
-        // Update each property in the cart to 'sold'
-        $updateSql = "UPDATE Property SET availability = 'sold' WHERE propertyID IN (SELECT propertyID FROM Cart WHERE userID = ?)";
+        // Update each property in the cart to 'sold' and set the transaction date
+        $updateSql = "UPDATE Property 
+                      SET availability = 'sold', transactionDate = CURDATE() 
+                      WHERE propertyID IN (SELECT propertyID FROM Cart WHERE userID = ?)";
         $updateStmt = $conn->prepare($updateSql);
         $updateStmt->bind_param("i", $userID);
         $updateStmt->execute();
@@ -68,7 +68,6 @@ if (isset($_POST['purchase'])) {
     }
 }
 
-
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -78,14 +77,12 @@ if (isset($_POST['purchase'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Your Cart</title>
     <link rel="stylesheet" href="../css/cart.css">
-
 </head>
 
 <body>
     <div class="container">
         <h1>Your Cart</h1>
         <?php if ($result->num_rows > 0): ?>
-
             <table class="table">
                 <thead>
                     <tr>
@@ -96,14 +93,11 @@ if (isset($_POST['purchase'])) {
                     </tr>
                 </thead>
                 <tbody>
-                <tbody>
-
                     <?php
                     $totalPrice = 0; // Initialize total price variable
                     while ($row = $result->fetch_assoc()):
                         $totalPrice += $row['resalePrice']; // Add each item's price to total
                     ?>
-
                         <tr>
                             <td><?php echo htmlspecialchars($row['flatType']); ?></td>
                             <td><?php echo htmlspecialchars($row['town']); ?></td>
@@ -130,7 +124,6 @@ if (isset($_POST['purchase'])) {
                     </form>
                 </div>
             </div>
-
         <?php else: ?>
             <p>Your cart is empty.</p>
         <?php endif; ?>
