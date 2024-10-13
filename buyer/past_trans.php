@@ -12,14 +12,17 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'buyer') {
 $userID = $_SESSION['userID'];
 
 // Fetch purchased properties along with agent details
-$sql = "SELECT p.propertyID, p.flatType, p.resalePrice, p.transactionDate, l.town, 
-               a.agentID, u.fname AS agent_fname, u.lname AS agent_lname, u.phone_number AS agent_phone
+$sql = "SELECT p.propertyID, p.flatType, p.resalePrice, t.transactionDate, l.town, 
+               a.agentID, ua.fname AS agent_fname, ua.lname AS agent_lname, ua.phone_number AS agent_phone
         FROM Property p
         JOIN Location l ON p.locationID = l.locationID
         LEFT JOIN Agent a ON p.agentID = a.agentID
-        LEFT JOIN Users u ON a.userID = u.userID
-        WHERE p.sellerID = ? AND p.availability = 'sold'
-        ORDER BY p.transactionDate DESC";
+        LEFT JOIN Users ua ON a.userID = ua.userID  -- Join to get agent's details
+        LEFT JOIN Transaction t ON p.propertyID = t.propertyID -- Join the transaction table
+        LEFT JOIN Users ub ON t.userID = ub.userID  -- Join to get buyer's details
+        WHERE t.userID = ? AND p.availability = 'sold'
+        ORDER BY t.transactionDate DESC";
+
 
 
 
