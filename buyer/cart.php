@@ -41,13 +41,21 @@ if (isset($_POST['purchase'])) {
     $conn->begin_transaction();
 
     try {
-        // Update each property in the cart to 'sold', set the transaction date, and update the sellerID
+        // Update each property in the cart to 'sold', set the transaction date
         $updateSql = "UPDATE Property 
-                      SET availability = 'sold', transactionDate = CURDATE(), sellerID = ?
+                      SET availability = 'sold', transactionDate = CURDATE()
                       WHERE propertyID IN (SELECT propertyID FROM Cart WHERE userID = ?)";
         $updateStmt = $conn->prepare($updateSql);
-        $updateStmt->bind_param("ii", $userID, $userID);
+        $updateStmt->bind_param("i", $userID);
         $updateStmt->execute();
+
+        // Insert transaction records into Transaction table
+        $insertTransSql = "INSERT INTO Transaction (propertyID, userID, transactionDate, totalPrice)
+                           SELECT propertyID, ?, CURDATE(), ?
+                           FROM Cart WHERE userID = ?";
+        $insertTransStmt = $conn->prepare($insertTransSql);
+        $insertTransStmt->bind_param("ids", $userID, $totalPrice, $userID);
+        $insertTransStmt->execute();
 
         // Clear the cart
         $clearCartSql = "DELETE FROM Cart WHERE userID = ?";
@@ -67,6 +75,8 @@ if (isset($_POST['purchase'])) {
         echo "Error occurred: " . $e->getMessage();
     }
 }
+
+
 
 ?>
 <!DOCTYPE html>
