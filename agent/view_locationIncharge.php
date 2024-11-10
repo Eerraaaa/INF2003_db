@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../lib/connection.php';
+include '../lib/mongodb.php';  // Add MongoDB connection
 include "../inc/agentnav.inc.php";
 
 // Ensure the user is logged in and is an agent
@@ -10,60 +11,59 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'agent') {
 }
 
 // Initialize variables
-$userID = $_SESSION['userID'];
+$userID = (int)$_SESSION['userID'];
 $agentID = null;
 $locations = [];
 $errorMsg = null;
 
-// Fetch the agentID and area in charge using the userID from the session
-$sqlAgent = "SELECT Agent.agentID, Agent.areaInCharge, Users.fname, Users.lname 
-             FROM Agent 
-             JOIN Users ON Agent.userID = Users.userID 
-             WHERE Agent.userID = ?";
-$stmtAgent = $conn->prepare($sqlAgent);
+try {
+    $mongodb = MongoDBConnection::getInstance();
 
-if (!$stmtAgent) {
-    $errorMsg = "Error preparing the agent query: " . $conn->error;
-} else {
-    $stmtAgent->bind_param('i', $userID);
-    $stmtAgent->execute();
-    $resultAgent = $stmtAgent->get_result();
-
-    if ($resultAgent->num_rows > 0) {
-        $agentInfo = $resultAgent->fetch_assoc();
+    // NOSQL: Fetch agent info from MongoDB instead of MySQL
+    $agentInfo = $mongodb->findOne('agent', ['userID' => $userID]);
+    
+    if ($agentInfo) {
         $agentID = $agentInfo['agentID'];
         $areaInCharge = $agentInfo['areaInCharge'];
-        $agentName = $agentInfo['fname'] . ' ' . $agentInfo['lname'];
+        
+        // Get agent name from MySQL Users table
+        $sqlUser = "SELECT fname, lname FROM Users WHERE userID = ?";
+        $stmt = $conn->prepare($sqlUser);
+        $stmt->bind_param('i', $userID);
+        $stmt->execute();
+        $resultUser = $stmt->get_result();
+        $userInfo = $resultUser->fetch_assoc();
+        $agentName = $userInfo['fname'] . ' ' . $userInfo['lname'];
+        $stmt->close();
+
+        // Fetch all unique locations for the agent's area in charge
+        $sqlLocations = "SELECT DISTINCT town, streetName 
+                        FROM Location 
+                        WHERE town = ?
+                        ORDER BY streetName";
+        
+        $stmtLocations = $conn->prepare($sqlLocations);
+        if (!$stmtLocations) {
+            $errorMsg = "Error preparing the locations query: " . $conn->error;
+        } else {
+            $stmtLocations->bind_param('s', $areaInCharge);
+            $stmtLocations->execute();
+            $resultLocations = $stmtLocations->get_result();
+
+            while ($row = $resultLocations->fetch_assoc()) {
+                $locations[] = $row;
+            }
+
+            if (empty($locations)) {
+                $errorMsg = "No locations found for your area in charge.";
+            }
+            $stmtLocations->close();
+        }
     } else {
         $errorMsg = "No agent found for the logged-in user.";
     }
-    $stmtAgent->close();
-}
-
-// Fetch all unique locations for the agent's area in charge
-if ($agentID && $areaInCharge) {
-    $sqlLocations = "SELECT DISTINCT town, streetName 
-                     FROM Location 
-                     WHERE town = ?
-                     ORDER BY streetName";
-    
-    $stmtLocations = $conn->prepare($sqlLocations);
-    if (!$stmtLocations) {
-        $errorMsg = "Error preparing the locations query: " . $conn->error;
-    } else {
-        $stmtLocations->bind_param('s', $areaInCharge);
-        $stmtLocations->execute();
-        $resultLocations = $stmtLocations->get_result();
-
-        while ($row = $resultLocations->fetch_assoc()) {
-            $locations[] = $row;
-        }
-
-        if (empty($locations)) {
-            $errorMsg = "No locations found for your area in charge.";
-        }
-        $stmtLocations->close();
-    }
+} catch (Exception $e) {
+    $errorMsg = "Error: " . $e->getMessage();
 }
 
 $conn->close();
@@ -81,9 +81,14 @@ $conn->close();
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <style>
+        body {
+            padding-top: 70px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container mt-5" style="padding-top:100px;">
+    <div class="container mt-5">
         <h2>My Area in Charge</h2>
         <?php if ($errorMsg): ?>
             <div class="alert alert-info"><?php echo htmlspecialchars($errorMsg); ?></div>

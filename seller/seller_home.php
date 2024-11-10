@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../lib/connection.php';
+include '../lib/mongodb.php';  // Add MongoDB connection
 include "../inc/sellernav.inc.php";
 
 // Enable error reporting
@@ -14,46 +15,78 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
     exit();
 }
 
+try {
+    $mongodb = MongoDBConnection::getInstance();
+} catch (Exception $e) {
+    die("Could not connect to MongoDB");
+}
+
 // Display success message if set
 if (isset($_SESSION['success_message'])) {
     echo "<div class='alert alert-success'>" . $_SESSION['success_message'] . "</div>";
-    unset($_SESSION['success_message']); // Unset the message after displaying it
+    unset($_SESSION['success_message']);
 }
 
-// Assuming the sellerID is the ID of the currently logged-in user
-$sellerID = $_SESSION['userID'];
+$sellerID = (int)$_SESSION['userID'];
 
-// Fetch the seller's property listings along with location, status, review information, and agent name
+// Fetch property listings from MySQL
 $sql = "SELECT 
-            MIN(Property.propertyID) as propertyID,
+            Property.propertyID,
             Property.flatType, 
             Property.resalePrice, 
             Property.approvalStatus, 
-            MAX(Property.rejectReason) as rejectReason,
-            MAX(Property.rejectComments) as rejectComments,
+            Property.rejectReason,
+            Property.rejectComments,
+            Property.agentID,
             Location.town, 
             Location.streetName, 
-            Location.block,
-            Property.agentID,
-            MAX(CASE WHEN agentReview.agentReviewID IS NOT NULL THEN 1 ELSE 0 END) AS is_reviewed,
-            Users.username AS agent_name
+            Location.block
         FROM Property
         JOIN Location ON Property.locationID = Location.locationID
-        LEFT JOIN agentReview ON Property.agentID = agentReview.agentID AND agentReview.userID = ?
-        LEFT JOIN Agent ON Property.agentID = Agent.agentID
-        LEFT JOIN Users ON Agent.userID = Users.userID
-        WHERE Property.sellerID = ?
-        GROUP BY Property.flatType, Property.resalePrice, Property.approvalStatus, Location.town, Location.streetName, Location.block, Property.agentID, Users.username";
+        WHERE Property.sellerID = ?";
 
 $stmt = $conn->prepare($sql);
 if (!$stmt) {
-    echo "Error preparing the query: " . $conn->error;
-    exit();
+    die("Error preparing the query: " . $conn->error);
 }
 
-$stmt->bind_param('ii', $sellerID, $sellerID);
+$stmt->bind_param('i', $sellerID);
 $stmt->execute();
 $result = $stmt->get_result();
+$properties = [];
+
+while ($row = $result->fetch_assoc()) {
+    // NOSQL: Get agent info from MongoDB
+    $agentInfo = $mongodb->findOne('agent', ['agentID' => (int)$row['agentID']]);
+    if ($agentInfo) {
+        // Get agent's username from MySQL Users table
+        $userStmt = $conn->prepare("SELECT username FROM Users WHERE userID = ?");
+        $userStmt->bind_param('i', $agentInfo['userID']);
+        $userStmt->execute();
+        $userResult = $userStmt->get_result();
+        $userInfo = $userResult->fetch_assoc();
+        $row['agent_name'] = $userInfo ? $userInfo['username'] : 'Unknown';
+        $userStmt->close();
+    } else {
+        $row['agent_name'] = 'Unknown';
+    }
+
+    // NOSQL: Check if agent has been reviewed by this seller
+    try {
+        $reviewQuery = new MongoDB\Driver\Query([
+            'agentID' => (int)$row['agentID'],
+            'userID' => $sellerID
+        ]);
+        $cursor = $mongodb->getConnection()->executeQuery("realestate_db.agentReview", $reviewQuery);
+        $reviews = iterator_to_array($cursor);
+        $row['is_reviewed'] = !empty($reviews);
+    } catch (Exception $e) {
+        error_log("Error checking reviews: " . $e->getMessage());
+        $row['is_reviewed'] = false;
+    }
+
+    $properties[] = $row;
+}
 ?>
 
 <!DOCTYPE html>
@@ -69,80 +102,72 @@ $result = $stmt->get_result();
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
     <style>
+        body {
+            padding-top: 70px;
+        }
         .status-approved { background-color: #d4edda; }
         .status-rejected { background-color: #f8d7da; }
     </style>
 </head>
 <body>
-    <div class="container mt-5" style="padding-top:100px;">
+    <div class="container mt-5">
         <h2 class="text-center">View My Listings</h2>
-        <?php
-        // Check if there are listings for the seller
-        if ($result->num_rows > 0) {
-            echo "<div class='container mt-5'>";
-            echo "<table class='table table-bordered table-striped'>";
-            echo "<thead>";
-            echo "<tr>";
-            echo "<th>Flat Type</th>";
-            echo "<th>Resale Price</th>";
-            echo "<th>Status</th>";
-            echo "<th>Town</th>";
-            echo "<th>Street Name</th>";
-            echo "<th>Block</th>";
-            echo "<th>Agent Name</th>";
-            echo "<th>Rejected Reason</th>";
-            echo "<th>Rejected Comments</th>";
-            echo "<th>Actions</th>";
-            echo "</tr>";
-            echo "</thead>";
-            echo "<tbody>";
-
-            // Fetch and display the rows
-            while ($row = $result->fetch_assoc()) {
-                $statusClass = '';
-                if ($row['approvalStatus'] === 'approved') {
-                    $statusClass = 'status-approved';
-                } elseif ($row['approvalStatus'] === 'rejected') {
-                    $statusClass = 'status-rejected';
-                }
-                
-                echo "<tr class='$statusClass'>";
-                echo "<td>" . htmlspecialchars($row['flatType']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['resalePrice']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['approvalStatus']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['town']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['streetName']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['block']) . "</td>";
-                echo "<td>" . htmlspecialchars($row['agent_name']) . "</td>";
-                echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectReason']) : '') . "</td>";
-                echo "<td>" . ($row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : '') . "</td>";
-                echo "<td>";
-                if ($row['approvalStatus'] === 'approved') {
-                    // If approved, show Review Agent button or Reviewed status
-                    if ($row['is_reviewed'] == 0) {
-                        echo "<a href='create_review.php?agentID=" . $row['agentID'] . "&propertyID=" . $row['propertyID'] . "' class='btn btn-success'>Review Agent</a> ";
-                    } else {
-                        echo "<span class='text-success'>Reviewed</span>";
-                    }
-                } elseif ($row['approvalStatus'] === 'pending') {
-                    // If pending, show Update and Delete buttons
-                    echo "<a href='update_listing.php?id=" . $row['propertyID'] . "' class='btn btn-primary'>Update</a> ";
-                    echo "<a href='delete_listing.php?id=" . $row['propertyID'] . "' class='btn btn-danger' onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>";
-                }
-                echo "</td>";                               
-                echo "</tr>";
-            }
-
-            echo "</tbody>";
-            echo "</table>";
-            echo "</div>";
-        } else {
-            echo "<div class='alert alert-info'>You have no property listings.</div>";
-        }
-
-        $stmt->close();
-        $conn->close();
-        ?>
+        <?php if (!empty($properties)): ?>
+            <div class="table-responsive">
+                <table class='table table-bordered table-striped'>
+                    <thead>
+                        <tr>
+                            <th>Flat Type</th>
+                            <th>Resale Price</th>
+                            <th>Status</th>
+                            <th>Town</th>
+                            <th>Street Name</th>
+                            <th>Block</th>
+                            <th>Agent Name</th>
+                            <th>Rejected Reason</th>
+                            <th>Rejected Comments</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($properties as $row): 
+                            $statusClass = $row['approvalStatus'] === 'approved' ? 'status-approved' : 
+                                         ($row['approvalStatus'] === 'rejected' ? 'status-rejected' : '');
+                        ?>
+                            <tr class="<?php echo $statusClass; ?>">
+                                <td><?php echo htmlspecialchars($row['flatType']); ?></td>
+                                <td>$<?php echo number_format($row['resalePrice'], 0, '.', ','); ?></td>
+                                <td><?php echo htmlspecialchars($row['approvalStatus']); ?></td>
+                                <td><?php echo htmlspecialchars($row['town']); ?></td>
+                                <td><?php echo htmlspecialchars($row['streetName']); ?></td>
+                                <td><?php echo htmlspecialchars($row['block']); ?></td>
+                                <td><?php echo htmlspecialchars($row['agent_name']); ?></td>
+                                <td><?php echo $row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectReason']) : ''; ?></td>
+                                <td><?php echo $row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : ''; ?></td>
+                                <td>
+                                    <?php if ($row['approvalStatus'] === 'approved'): ?>
+                                        <?php if (!$row['is_reviewed']): ?>
+                                            <a href='create_review.php?agentID=<?php echo $row['agentID']; ?>&propertyID=<?php echo $row['propertyID']; ?>' 
+                                               class='btn btn-success btn-sm'>Review Agent</a>
+                                        <?php else: ?>
+                                            <span class='text-success'>Reviewed</span>
+                                        <?php endif; ?>
+                                    <?php elseif ($row['approvalStatus'] === 'pending'): ?>
+                                        <a href='update_listing.php?id=<?php echo $row['propertyID']; ?>' 
+                                           class='btn btn-primary btn-sm'>Update</a>
+                                        <a href='delete_listing.php?id=<?php echo $row['propertyID']; ?>' 
+                                           class='btn btn-danger btn-sm'
+                                           onclick='return confirm("Are you sure you want to delete this listing?");'>Delete</a>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        <?php else: ?>
+            <div class='alert alert-info'>You have no property listings.</div>
+        <?php endif; ?>
     </div>
 </body>
 </html>

@@ -1,4 +1,5 @@
 <?php
+// update_agent.php
 session_start();
 if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
     header("Location: unauthorized.php");
@@ -6,6 +7,7 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'admin') {
 }
 
 include 'lib/connection.php';
+include 'lib/mongodb.php';
 include "../inc/headform.inc.php";
 
 function get_towns($conn) {
@@ -18,13 +20,13 @@ function get_towns($conn) {
     }
     return $towns;
 }
-$towns = get_towns($conn);
 
+$towns = get_towns($conn);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update'])) {
         // Handle form submission for updating agent details
-        $agentID = $_POST['agentID'];
+        $agentID = (int)$_POST['agentID'];
         $areaInCharge = $_POST['areaInCharge'];
         $username = $_POST['username'];
         $email = $_POST['email'];
@@ -32,66 +34,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lname = $_POST['lname'];
         $phone_number = $_POST['phone_number'];
 
-        // Update agent and user details
-        $conn->begin_transaction();
         try {
-            // Update Users table
-            $updateUserQuery = "
-                UPDATE Users 
-                SET username = ?, email = ?, fname = ?, lname = ?, phone_number = ? 
-                WHERE userID = (SELECT userID FROM Agent WHERE agentID = ?)
-            ";
-            $stmt = $conn->prepare($updateUserQuery);
-            $stmt->bind_param("sssssi", $username, $email, $fname, $lname, $phone_number, $agentID);
-            $stmt->execute();
+            $mongodb = MongoDBConnection::getInstance();
+            
+            // Get userID from MongoDB agent document
+            $filter = ['agentID' => $agentID];
+            $agentData = $mongodb->findOne('agent', $filter);
+            
+            if ($agentData) {
+                // Update Users table in MySQL
+                $stmt = $conn->prepare("UPDATE Users SET username = ?, email = ?, fname = ?, lname = ?, phone_number = ? WHERE userID = ?");
+                $stmt->bind_param("sssssi", $username, $email, $fname, $lname, $phone_number, $agentData['userID']);
+                $stmt->execute();
 
-            // Update Agent table
-            $updateAgentQuery = "UPDATE Agent SET areaInCharge = ? WHERE agentID = ?";
-            $stmt = $conn->prepare($updateAgentQuery);
-            $stmt->bind_param("si", $areaInCharge, $agentID);
-            $stmt->execute();
+                // Update MongoDB agent collection
+                $bulk = new MongoDB\Driver\BulkWrite;
+                $bulk->update(
+                    ['agentID' => $agentID],
+                    ['$set' => ['areaInCharge' => $areaInCharge]]
+                );
+                $mongodb->getConnection()->executeBulkWrite('realestate_db.agent', $bulk);
 
-            // Commit transaction
-            $conn->commit();
-
-            // Redirect after successful update
-            header("Location: home.php?message=Agent updated successfully");
-            exit();
+                header("Location: admin_home.php?message=Agent updated successfully");
+                exit();
+            }
         } catch (Exception $e) {
-            // Rollback transaction on error
-            $conn->rollback();
             die("Error updating agent: " . $e->getMessage());
         }
     } else {
         // Fetch current agent details
-        $agentID = $_POST['agentID'];
-        $query = "
-            SELECT 
-                a.areaInCharge, 
-                u.username, 
-                u.email, 
-                u.fname, 
-                u.lname, 
-                u.phone_number
-            FROM Agent a
-            JOIN Users u ON a.userID = u.userID
-            WHERE a.agentID = ?
-        ";
-
-        $stmt = $conn->prepare($query);
-        $stmt->bind_param("i", $agentID);
-        $stmt->execute();
-        $result = $stmt->get_result();
-
-        if ($result->num_rows === 1) {
-            $agent = $result->fetch_assoc();
-        } else {
-            die("Agent not found.");
+        $agentID = (int)$_POST['agentID'];
+        
+        try {
+            $mongodb = MongoDBConnection::getInstance();
+            $filter = ['agentID' => $agentID];
+            $agentData = $mongodb->findOne('agent', $filter);
+            
+            if ($agentData) {
+                // Get user details from MySQL
+                $stmt = $conn->prepare("SELECT username, email, fname, lname, phone_number FROM Users WHERE userID = ?");
+                $stmt->bind_param("i", $agentData['userID']);
+                $stmt->execute();
+                $result = $stmt->get_result();
+                $agent = $result->fetch_assoc();
+                $agent['areaInCharge'] = $agentData['areaInCharge'];
+            } else {
+                die("Agent not found.");
+            }
+        } catch (Exception $e) {
+            die("Error fetching agent details: " . $e->getMessage());
         }
     }
 } else {
-    // Redirect if accessed directly without POST
-    header("Location: home.php?message=Invalid request");
+    header("Location: admin_home.php?message=Invalid request");
     exit();
 }
 ?>
@@ -167,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="field btns">
           <button type="submit" name="update" class="submit">Update</button>
-          <a href="home.php" class="submit">Back</a>
+          <a href="admin_home.php" class="submit">Back</a>
         </div>
       </form>
       </main>

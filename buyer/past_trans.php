@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../lib/connection.php';
+include '../lib/mongodb.php';
 include '../inc/head.inc.php';
 
 // Check if user is logged in and is a buyer
@@ -9,34 +10,73 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'buyer') {
     exit();
 }
 
-$userID = $_SESSION['userID'];
+$userID = (int)$_SESSION['userID'];
 
-// Fetch purchased properties along with agent details
-$sql = "SELECT p.propertyID, p.flatType, p.resalePrice, t.transactionDate, l.town, 
-               a.agentID, ua.fname AS agent_fname, ua.lname AS agent_lname, ua.phone_number AS agent_phone
-        FROM Property p
-        JOIN Location l ON p.locationID = l.locationID
-        LEFT JOIN Agent a ON p.agentID = a.agentID
-        LEFT JOIN Users ua ON a.userID = ua.userID  -- Join to get agent's details
-        LEFT JOIN Transaction t ON p.propertyID = t.propertyID -- Join the transaction table
-        LEFT JOIN Users ub ON t.userID = ub.userID  -- Join to get buyer's details
-        WHERE t.userID = ? AND p.availability = 'sold'
-        ORDER BY t.transactionDate DESC";
-
-
-
-
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    die("An error occurred. Please try again later.");
-}
-
-$stmt->bind_param("i", $userID);
-if (!$stmt->execute()) {
-    die("An error occurred while fetching your purchase history.");
-}
-
-$result = $stmt->get_result();
+try {
+    $mongodb = MongoDBConnection::getInstance();
+    
+    // First get transactions from MongoDB
+    $query = new MongoDB\Driver\Query(
+        ['userID' => $userID],
+        ['sort' => ['transactionDate' => -1]]
+    );
+    
+    $cursor = $mongodb->getConnection()->executeQuery("realestate_db.transaction", $query);
+    $transactions = [];
+    
+    foreach ($cursor as $transaction) {
+        $transData = json_decode(json_encode($transaction), true);
+        
+        // Get property details from MySQL
+        $propertyStmt = $conn->prepare("
+            SELECT p.propertyID, p.flatType, p.agentID, l.town 
+            FROM Property p
+            JOIN Location l ON p.locationID = l.locationID
+            WHERE p.propertyID = ?
+        ");
+        $propertyID = (int)$transData['propertyID'];
+        $propertyStmt->bind_param("i", $propertyID);
+        $propertyStmt->execute();
+        $propertyResult = $propertyStmt->get_result();
+        $propertyData = $propertyResult->fetch_assoc();
+        
+        if ($propertyData) {
+            // Get agent details from MongoDB and MySQL
+            $agentQuery = new MongoDB\Driver\Query(
+                ['agentID' => (int)$propertyData['agentID']]
+            );
+            $agentCursor = $mongodb->getConnection()->executeQuery("realestate_db.agent", $agentQuery);
+            $agentData = current($agentCursor->toArray());
+            
+            if ($agentData) {
+                $agentInfo = json_decode(json_encode($agentData), true);
+                
+                // Get agent's user details from MySQL
+                $agentUserStmt = $conn->prepare("
+                    SELECT fname, lname, phone_number 
+                    FROM Users 
+                    WHERE userID = ?
+                ");
+                $agentUserID = (int)$agentInfo['userID'];
+                $agentUserStmt->bind_param("i", $agentUserID);
+                $agentUserStmt->execute();
+                $agentUserResult = $agentUserStmt->get_result();
+                $agentUserData = $agentUserResult->fetch_assoc();
+            }
+            
+            // Combine all data
+            $transactions[] = [
+                'propertyID' => $propertyData['propertyID'],
+                'flatType' => $propertyData['flatType'],
+                'town' => $propertyData['town'],
+                'resalePrice' => $transData['totalPrice'],
+                'transactionDate' => $transData['transactionDate'],
+                'agent_fname' => $agentUserData['fname'] ?? 'N/A',
+                'agent_lname' => $agentUserData['lname'] ?? '',
+                'agent_phone' => $agentUserData['phone_number'] ?? 'N/A'
+            ];
+        }
+    }
 ?>
 
 <!DOCTYPE html>
@@ -49,7 +89,7 @@ $result = $stmt->get_result();
 <body>
     <div class="container">
         <h1>Your Transaction History</h1>
-        <?php if ($result->num_rows > 0): ?>
+        <?php if (!empty($transactions)): ?>
             <table class="table">
                 <thead>
                     <tr>
@@ -63,7 +103,7 @@ $result = $stmt->get_result();
                     </tr>
                 </thead>
                 <tbody>
-                    <?php while ($row = $result->fetch_assoc()): ?>
+                    <?php foreach ($transactions as $row): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($row['propertyID']); ?></td>
                             <td><?php echo htmlspecialchars($row['flatType']); ?></td>
@@ -72,16 +112,16 @@ $result = $stmt->get_result();
                             <td><?php echo htmlspecialchars($row['transactionDate']); ?></td>
                             <td>
                                 <?php
-                                if ($row['agent_fname'] && $row['agent_lname']) {
+                                if ($row['agent_fname'] !== 'N/A') {
                                     echo htmlspecialchars($row['agent_fname']) . ' ' . htmlspecialchars($row['agent_lname']);
                                 } else {
                                     echo "N/A";
                                 }
                                 ?>
                             </td>
-                            <td><?php echo htmlspecialchars($row['agent_phone'] ? $row['agent_phone'] : 'N/A'); ?></td>
+                            <td><?php echo htmlspecialchars($row['agent_phone']); ?></td>
                         </tr>
-                    <?php endwhile; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         <?php else: ?>
@@ -91,3 +131,9 @@ $result = $stmt->get_result();
     </div>
 </body>
 </html>
+
+<?php
+} catch (Exception $e) {
+    die("Error: " . $e->getMessage());
+}
+?>

@@ -5,40 +5,55 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'agent') {
     exit();
 }
 include '../lib/connection.php';
+include '../lib/mongodb.php';  // Include MongoDB connection
 
-$reviewID = isset($_GET['id']) ? $_GET['id'] : null;
+try {
+    $mongodb = MongoDBConnection::getInstance();
+} catch (Exception $e) {
+    die("Could not connect to MongoDB");
+}
+
+$reviewID = isset($_GET['id']) ? (int)$_GET['id'] : null;
 
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
     $response = $_POST['response'];
-    $reviewID = $_POST['reviewID'];
+    $reviewID = (int)$_POST['reviewID'];
 
-    $sql = "UPDATE agentReview SET response = ? WHERE agentReviewID = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("si", $response, $reviewID);
+    // NOSQL: Update review response in MongoDB
+    try {
+        $bulk = new MongoDB\Driver\BulkWrite;
+        $bulk->update(
+            ['agentReviewID' => $reviewID],
+            ['$set' => ['response' => $response]]
+        );
 
-    if ($stmt->execute()) {
+        $mongodb->getConnection()->executeBulkWrite('realestate_db.agentReview', $bulk);
         $_SESSION['success_message'] = "Response submitted successfully!";
         header("Location: read_review.php");
         exit();
-    } else {
-        echo "Error: " . $sql . "<br>" . $conn->error;
-    }    
+    } catch (Exception $e) {
+        error_log("Error updating review: " . $e->getMessage());
+        echo "Error updating response.";
+    }
 
-    $stmt->close();
 } elseif ($reviewID) {
-    $sql = "SELECT * FROM agentReview WHERE agentReviewID = ?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("i", $reviewID);
-    $stmt->execute();
-    $result = $stmt->get_result();
+    // NOSQL: Get review from MongoDB
+    try {
+        $query = new MongoDB\Driver\Query(['agentReviewID' => $reviewID]);
+        $cursor = $mongodb->getConnection()->executeQuery('realestate_db.agentReview', $query);
+        $review = current($cursor->toArray());
 
-    if ($result->num_rows > 0) {
-        $row = $result->fetch_assoc();
-    } else {
-        echo "Review not found.";
+        if ($review) {
+            $row = json_decode(json_encode($review), true);
+        } else {
+            echo "Review not found.";
+            exit();
+        }
+    } catch (Exception $e) {
+        error_log("Error fetching review: " . $e->getMessage());
+        echo "Error fetching review.";
         exit();
     }
-    $stmt->close();
 } else {
     echo "Invalid request.";
     exit();
@@ -61,14 +76,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
     <style>
         body {
-            padding-top: 70px; /* Adjust this value based on your navbar height */
+            padding-top: 70px;
         }
     </style>
 </head>
 <body>
-<?php
-include "../inc/agentnav.inc.php";
-?>
+<?php include "../inc/agentnav.inc.php"; ?>
+
 <div class="container mt-5">
     <h2>Respond to Review</h2>
     <form method="post">
@@ -76,13 +90,17 @@ include "../inc/agentnav.inc.php";
         <div class="form-group">
             <label>Original Review:</label>
             <p><?php echo htmlspecialchars($row['review']); ?></p>
+            <p><strong>Rating:</strong> <?php echo htmlspecialchars($row['rating']); ?> stars</p>
+            <p><strong>Date:</strong> <?php echo htmlspecialchars($row['review_date']); ?></p>
         </div>
         <div class="form-group">
             <label for="response">Your Response:</label>
-            <textarea class="form-control" id="response" name="response" required></textarea>
+            <textarea class="form-control" id="response" name="response" required rows="4"></textarea>
         </div>
         <button type="submit" class="btn btn-primary">Submit Response</button>
+        <a href="read_review.php" class="btn btn-secondary">Back to Reviews</a>
     </form>
 </div>
+
 </body>
 </html>

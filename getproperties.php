@@ -1,5 +1,6 @@
 <?php
 include 'lib/connection.php';
+include 'lib/mongodb.php';
 
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'all';
@@ -78,26 +79,15 @@ switch ($sortBy) {
         break;
 }
 
-$query = "SELECT p.propertyID, p.flatType, 
+// Modified query to get property and location data from MySQL
+$query = "SELECT p.propertyID, p.flatType, p.agentID,
                  CONCAT(l.town, ' ', l.streetName, ' Block ', l.block) AS locationName,
-                 p.resalePrice, 
-                 p.transactionDate,
-                 p.availability,
-                 COALESCE(u.fname, '') AS agentName,
-                 COALESCE(u.phone_number, '') AS agentPhone,
-                 COALESCE(u.email, '') AS agentEmail
+                 p.resalePrice, p.transactionDate, p.availability
           FROM Property p
           JOIN Location l ON p.locationID = l.locationID
-          LEFT JOIN Agent a ON p.agentID = a.agentID  -- Use LEFT JOIN instead of JOIN
-          LEFT JOIN Users u ON a.userID = u.userID
           WHERE $whereClause
           $orderBy
           LIMIT ? OFFSET ?";
-
-
-// Updated Count Query remains the same as before
-$countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID WHERE $whereClause";
-
 
 $countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID WHERE $whereClause";
 
@@ -119,17 +109,79 @@ $countStmt->execute();
 $countResult = $countStmt->get_result();
 $totalProperties = $countResult->fetch_assoc()['total'];
 
-$properties = [];
-while ($row = $result->fetch_assoc()) {
-    $properties[] = $row;
+// Initialize MongoDB connection
+try {
+    $mongodb = MongoDBConnection::getInstance();
+} catch (Exception $e) {
+    error_log("MongoDB Connection Error: " . $e->getMessage());
+    $mongodb = null;
 }
 
-$totalPages = ceil($totalProperties / $itemsPerPage);
+$properties = [];
+while ($row = $result->fetch_assoc()) {
+    if ($mongodb) {
+        try {
+            // MongoDB agent lookup code remains the same
+            $agentInfo = $mongodb->findOne('agent', ['agentID' => (int)$row['agentID']]);
+            
+            if ($agentInfo) {
+                // User details lookup remains the same
+                $userQuery = "SELECT fname, lname, email, phone_number FROM Users WHERE userID = ?";
+                $userStmt = $conn->prepare($userQuery);
+                $userId = (int)$agentInfo['userID'];
+                $userStmt->bind_param("i", $userId);
+                $userStmt->execute();
+                $userResult = $userStmt->get_result();
+                $userDetails = $userResult->fetch_assoc();
+                
+                if ($userDetails) {
+                    $row['agentName'] = $userDetails['fname'] . ' ' . $userDetails['lname'];
+                    $row['agentPhone'] = $userDetails['phone_number'];
+                    $row['agentEmail'] = $userDetails['email'];
+                    $row['agentArea'] = $agentInfo['areaInCharge'] ?? '';
+                } else {
+                    $row['agentName'] = '';
+                    $row['agentPhone'] = '';
+                    $row['agentEmail'] = '';
+                    $row['agentArea'] = $agentInfo['areaInCharge'] ?? '';
+                }
+            } else {
+                $row['agentName'] = '';
+                $row['agentPhone'] = '';
+                $row['agentEmail'] = '';
+                $row['agentArea'] = '';
+            }
+        } catch (Exception $e) {
+            error_log("Error fetching agent data: " . $e->getMessage());
+            $row['agentName'] = '';
+            $row['agentPhone'] = '';
+            $row['agentEmail'] = '';
+            $row['agentArea'] = '';
+        }
+    } else {
+        $row['agentName'] = '';
+        $row['agentPhone'] = '';
+        $row['agentEmail'] = '';
+        $row['agentArea'] = '';
+    }
+    
+    // Price formatting without decimal places
+    if (is_numeric($row['resalePrice'])) {
+        $row['resalePrice'] = '$' . number_format($row['resalePrice'], 0, '.', ',');
+    } else {
+        $row['resalePrice'] = 'Price not available';
+    }
+    
+    // Format the date
+    $row['transactionDate'] = date('Y-m-d', strtotime($row['transactionDate']));
+    
+    $properties[] = $row;
+}
 
 $response = [
     'properties' => $properties,
     'currentPage' => $page,
-    'totalPages' => $totalPages,
+    'totalPages' => ceil($totalProperties / $itemsPerPage),
     'total' => $totalProperties,
     'start' => $offset + 1,
     'end' => min($offset + $itemsPerPage, $totalProperties)

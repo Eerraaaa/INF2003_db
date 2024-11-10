@@ -241,14 +241,14 @@ $pageTitle = $isBuyer ? "Welcome, $buyerName" : 'Properties';
             function updatePropertyTable(properties) {
                 propertyTableBody.innerHTML = '';
                 if (properties.length === 0) {
-                    propertyTableBody.innerHTML = '<tr><td colspan="<?php echo $isBuyer ? '8' : '7'; ?>">No properties found</td></tr>';
+                    propertyTableBody.innerHTML = '<tr><td colspan="<?php echo $isBuyer ? "8" : "7"; ?>">No properties found</td></tr>';
                 } else {
                     properties.forEach(property => {
                         const row = `
                             <tr>
                                 <td>${property.flatType}</td>
                                 <td>${property.locationName}</td>
-                                <td>$${Number(property.resalePrice).toLocaleString()}</td>
+                                <td>${property.resalePrice}</td>
                                 <td>${property.transactionDate}</td>
                                 <td>${property.availability}</td>
                                 <td>${property.agentName || ''}</td> 

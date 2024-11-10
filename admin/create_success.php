@@ -50,7 +50,7 @@ session_start();
             echo "<p>Agent Account Creation was successful.<br>Now redirecting to home page...</p>";
         }
         ?>
-        <a href="home.php">Home</a>
+        <a href="admin_home.php">Home</a>
     </div>
     <!-- Redirect to the login page after a delay -->
     <script>

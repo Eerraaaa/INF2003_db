@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../lib/connection.php';
+include '../lib/mongodb.php';  // Add MongoDB connection
 include "../inc/agentnav.inc.php";
 
 // Ensure the user is logged in and is an agent
@@ -10,59 +11,54 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'agent') {
 }
 
 // Initialize variables
-$userID = $_SESSION['userID']; // Get the userID from the session
+$userID = (int)$_SESSION['userID'];
 $agentID = null;
 $listings = [];
 $errorMsg = null;
 
-// First, fetch the agentID using the userID from the session
-$sqlAgent = "SELECT agentID FROM Agent WHERE userID = ?";
-$stmtAgent = $conn->prepare($sqlAgent);
-if (!$stmtAgent) {
-    $errorMsg = "Error preparing the agent query: " . $conn->error;
-} else {
-    $stmtAgent->bind_param('i', $userID);
-    $stmtAgent->execute();
-    $resultAgent = $stmtAgent->get_result();
+try {
+    // Get MongoDB connection
+    $mongodb = MongoDBConnection::getInstance();
 
-    if ($resultAgent->num_rows > 0) {
-        $agentRow = $resultAgent->fetch_assoc();
-        $agentID = $agentRow['agentID'];
+    // NOSQL: Get agent info from MongoDB instead of MySQL
+    $agentInfo = $mongodb->findOne('agent', ['userID' => $userID]);
+
+    if ($agentInfo) {
+        $agentID = $agentInfo['agentID'];
+
+        // Keep MySQL query for property listings since it involves multiple table joins
+        $sqlListings = "
+        SELECT Property.propertyID, Property.flatType, Property.resalePrice, Property.approvalStatus, 
+               Location.town, Location.streetName, Location.block,
+               Users.fname AS seller_fname, Users.lname AS seller_lname
+        FROM Property
+        JOIN Location ON Property.locationID = Location.locationID
+        JOIN Users ON Property.sellerID = Users.userID
+        WHERE Property.agentID = ?
+        ";
+
+        $stmtListings = $conn->prepare($sqlListings);
+        if (!$stmtListings) {
+            $errorMsg = "Error preparing the listings query: " . $conn->error;
+        } else {
+            $stmtListings->bind_param('i', $agentID);
+            $stmtListings->execute();
+            $resultListings = $stmtListings->get_result();
+
+            if ($resultListings->num_rows > 0) {
+                while ($row = $resultListings->fetch_assoc()) {
+                    $listings[] = $row;
+                }
+            } else {
+                $errorMsg = "You are not linked to any property listings.";
+            }
+            $stmtListings->close();
+        }
     } else {
         $errorMsg = "No agent found for the logged-in user.";
     }
-    $stmtAgent->close();
-}
-
-// Fetch the listings linked to the agent if the agentID is found
-if ($agentID) {
-    $sqlListings = "
-    SELECT Property.propertyID, Property.flatType, Property.resalePrice, Property.approvalStatus, 
-           Location.town, Location.streetName, Location.block,
-           Users.fname AS seller_fname, Users.lname AS seller_lname
-    FROM Property
-    JOIN Location ON Property.locationID = Location.locationID
-    JOIN Users ON Property.sellerID = Users.userID
-    WHERE Property.agentID = ?
-    ";
-
-    $stmtListings = $conn->prepare($sqlListings);
-    if (!$stmtListings) {
-        $errorMsg = "Error preparing the listings query: " . $conn->error;
-    } else {
-        $stmtListings->bind_param('i', $agentID);
-        $stmtListings->execute();
-        $resultListings = $stmtListings->get_result();
-
-        if ($resultListings->num_rows > 0) {
-            while ($row = $resultListings->fetch_assoc()) {
-                $listings[] = $row;
-            }
-        } else {
-            $errorMsg = "You are not linked to any property listings.";
-        }
-        $stmtListings->close();
-    }
+} catch (Exception $e) {
+    $errorMsg = "Error: " . $e->getMessage();
 }
 
 $conn->close();
@@ -84,17 +80,26 @@ $conn->close();
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <!-- Bootstrap JS-->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
-    <!-- ScrollReveal.js library -->
-    <script src="https://unpkg.com/scrollreveal"></script>
-    <script src="../js/home.js"></script>
+    <style>
+        body {
+            padding-top: 70px;
+        }
+    </style>
     <title>Agent Home</title>
 </head>
 <body>
-    <div class="container mt-5" style="padding-top:100px;">
+    <div class="container mt-5">
         <h2>Property Listings</h2>
         <?php if ($errorMsg): ?>
             <div class="alert alert-info"><?php echo htmlspecialchars($errorMsg); ?></div>
         <?php else: ?>
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Agent Information</h5>
+                    <p class="card-text"><strong>Area in Charge:</strong> <?php echo htmlspecialchars($agentInfo['areaInCharge']); ?></p>
+                </div>
+            </div>
+
             <table class="table table-bordered table-striped">
                 <thead>
                     <tr>
@@ -112,7 +117,7 @@ $conn->close();
                     <?php foreach ($listings as $row): ?>
                         <tr>
                             <td><?php echo htmlspecialchars($row['flatType']); ?></td>
-                            <td><?php echo htmlspecialchars($row['resalePrice']); ?></td>
+                            <td>$<?php echo number_format($row['resalePrice'], 0, '.', ','); ?></td>
                             <td><?php echo htmlspecialchars($row['approvalStatus']); ?></td>
                             <td><?php echo htmlspecialchars($row['town']); ?></td>
                             <td><?php echo htmlspecialchars($row['streetName']); ?></td>
@@ -121,12 +126,12 @@ $conn->close();
                             <td>
                                 <?php if ($row['approvalStatus'] === 'pending'): ?>
                                     <a href="approve_listing.php?id=<?php echo $row['propertyID']; ?>" 
-                                    class="btn btn-success" 
+                                    class="btn btn-success btn-sm" 
                                     onclick="return confirm('Are you sure you want to approve this listing?');">
                                         Approve
                                     </a>
                                     <a href="reject_listing.php?id=<?php echo $row['propertyID']; ?>" 
-                                    class="btn btn-danger">
+                                    class="btn btn-danger btn-sm">
                                         Reject
                                     </a>
                                 <?php elseif ($row['approvalStatus'] === 'approved'): ?>

@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../lib/connection.php';
+include '../lib/mongodb.php';  // Add MongoDB connection
 include "../inc/sellernav.inc.php";
 
 // Enable error reporting
@@ -14,26 +15,61 @@ if (!isset($_SESSION['user_type']) || $_SESSION['user_type'] !== 'seller') {
     exit();
 }
 
-// Assuming the sellerID is the ID of the currently logged-in user
-$sellerID = $_SESSION['userID'];
-
-// Fetch the seller's reviews grouped by agent
-$reviewSql = "SELECT ar.*, CONCAT(u.fname, ' ', u.lname) AS agent_name
-              FROM agentReview ar
-              JOIN Agent a ON ar.agentID = a.agentID
-              JOIN Users u ON a.userID = u.userID
-              WHERE ar.userID = ?
-              ORDER BY a.agentID, ar.review_date DESC";
-
-$reviewStmt = $conn->prepare($reviewSql);
-if (!$reviewStmt) {
-    echo "Error preparing the review query: " . $conn->error;
-    exit();
+try {
+    $mongodb = MongoDBConnection::getInstance();
+    $sellerID = (int)$_SESSION['userID'];
+    
+    // NOSQL: Get all reviews by this seller
+    $query = new MongoDB\Driver\Query(
+        ['userID' => $sellerID],
+        ['sort' => ['agentID' => 1, 'review_date' => -1]]
+    );
+    
+    $reviewCursor = $mongodb->getConnection()->executeQuery("realestate_db.agentReview", $query);
+    $reviews = [];
+    $currentAgentID = null;
+    $currentAgentReviews = [];
+    
+    foreach ($reviewCursor as $review) {
+        $reviewData = json_decode(json_encode($review), true);
+        
+        if ($currentAgentID !== $reviewData['agentID']) {
+            if ($currentAgentID !== null) {
+                $reviews[] = $currentAgentReviews;
+            }
+            $currentAgentID = $reviewData['agentID'];
+            
+            // Get agent info from MongoDB
+            $agentInfo = $mongodb->findOne('agent', ['agentID' => (int)$currentAgentID]);
+            
+            if ($agentInfo) {
+                // Get agent name from MySQL
+                $userQuery = "SELECT CONCAT(fname, ' ', lname) AS agent_name FROM Users WHERE userID = ?";
+                $stmt = $conn->prepare($userQuery);
+                $userID = (int)$agentInfo['userID'];
+                $stmt->bind_param("i", $userID);
+                $stmt->execute();
+                $userResult = $stmt->get_result();
+                $userDetails = $userResult->fetch_assoc();
+                
+                $currentAgentReviews = [
+                    'agentID' => $currentAgentID,
+                    'agent_name' => $userDetails ? $userDetails['agent_name'] : 'Unknown Agent',
+                    'reviews' => []
+                ];
+            }
+        }
+        
+        $currentAgentReviews['reviews'][] = $reviewData;
+    }
+    
+    if ($currentAgentID !== null) {
+        $reviews[] = $currentAgentReviews;
+    }
+    
+} catch (Exception $e) {
+    die("Error: " . $e->getMessage());
 }
-
-$reviewStmt->bind_param('i', $sellerID);
-$reviewStmt->execute();
-$reviewResult = $reviewStmt->get_result();
 ?>
 
 <!DOCTYPE html>
@@ -48,40 +84,35 @@ $reviewResult = $reviewStmt->get_result();
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
+    <style>
+        body { padding-top: 70px; }
+        .rating-stars { color: #ffc107; }
+    </style>
 </head>
 <body>
-    <div class="container mt-5" style="padding-top:100px;">
+    <div class="container mt-5">
         <h2 class="text-center">My Reviews for Agents</h2>
         <?php
-        if ($reviewResult->num_rows > 0) {
-            $currentAgent = null;
-            while ($review = $reviewResult->fetch_assoc()) {
-                if ($currentAgent !== $review['agentID']) {
-                    if ($currentAgent !== null) {
-                        echo "</tbody></table></div>";
-                    }
-                    $currentAgent = $review['agentID'];
-                    echo "<h3 class='mt-4'>Reviews for " . htmlspecialchars($review['agent_name']) . "</h3>";
-                    echo "<div class='container mt-3'>";
-                    echo "<table class='table table-bordered table-striped'>";
-                    echo "<thead class='thead-dark'>";
+        if (!empty($reviews)) {
+            foreach ($reviews as $agentReviews) {
+                echo "<h3 class='mt-4'>Reviews for " . htmlspecialchars($agentReviews['agent_name']) . "</h3>";
+                echo "<div class='table-responsive mt-3'>";
+                echo "<table class='table table-bordered table-striped'>";
+                echo "<thead class='thead-dark'>";
+                echo "<tr><th>Review</th><th>Rating</th><th>Review Date</th><th>Agent Response</th></tr>";
+                echo "</thead><tbody>";
+                
+                foreach ($agentReviews['reviews'] as $review) {
                     echo "<tr>";
-                    echo "<th>Review</th>";
-                    echo "<th>Rating</th>";
-                    echo "<th>Review Date</th>";
-                    echo "<th>Agent Response</th>";
+                    echo "<td>" . htmlspecialchars($review['review']) . "</td>";
+                    echo "<td>" . htmlspecialchars($review['rating']) . "</td>";
+                    echo "<td>" . htmlspecialchars($review['review_date']) . "</td>";
+                    echo "<td>" . (empty($review['response']) || $review['response'] === 'NULL' ? 
+                                 'No response yet' : htmlspecialchars($review['response'])) . "</td>";
                     echo "</tr>";
-                    echo "</thead>";
-                    echo "<tbody>";
                 }
-                echo "<tr>";
-                echo "<td>" . htmlspecialchars($review['review']) . "</td>";
-                echo "<td>" . htmlspecialchars($review['rating']) . "</td>";
-                echo "<td>" . htmlspecialchars($review['review_date']) . "</td>";
-                echo "<td>" . (empty($review['response']) ? 'No response yet' : htmlspecialchars($review['response'])) . "</td>";
-                echo "</tr>";
+                echo "</tbody></table></div>";
             }
-            echo "</tbody></table></div>";
         } else {
             echo "<div class='alert alert-info'>You haven't left any reviews yet.</div>";
         }
@@ -89,7 +120,3 @@ $reviewResult = $reviewStmt->get_result();
     </div>
 </body>
 </html>
-<?php
-$reviewStmt->close();
-$conn->close();
-?>
