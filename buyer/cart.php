@@ -26,12 +26,39 @@ $result = $stmt->get_result();
 // Handle remove from cart
 if (isset($_POST['remove_from_cart'])) {
     $removePropertyID = $_POST['remove_from_cart'];
-    $removeSql = "DELETE FROM Cart WHERE userID = ? AND propertyID = ?";
-    $removeStmt = $conn->prepare($removeSql);
-    $removeStmt->bind_param("ii", $userID, $removePropertyID);
-    $removeStmt->execute();
-    header("Location: cart.php");
-    exit();
+
+    try {
+        $conn->begin_transaction(); // Start a transaction
+
+        // Lock the cart row before deletion
+        $checkSql = "SELECT * FROM Cart WHERE userID = ? AND propertyID = ? FOR UPDATE";
+        $checkStmt = $conn->prepare($checkSql);
+        if (!$checkStmt) {
+            throw new Exception("Prepare failed for locking: " . $conn->error);
+        }
+        $checkStmt->bind_param("ii", $userID, $removePropertyID);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
+        if ($checkResult->num_rows === 0) {
+            throw new Exception("No matching cart item found.");
+        }
+
+        // Perform the deletion
+        $removeSql = "DELETE FROM Cart WHERE userID = ? AND propertyID = ?";
+        $removeStmt = $conn->prepare($removeSql);
+        if (!$removeStmt) {
+            throw new Exception("Prepare failed for deletion: " . $conn->error);
+        }
+        $removeStmt->bind_param("ii", $userID, $removePropertyID);
+        $removeStmt->execute();
+
+        $conn->commit(); // Commit the transaction
+        header("Location: cart.php");
+        exit();
+    } catch (Exception $e) {
+        $conn->rollback(); // Rollback on failure
+        die("Error occurred while removing item from cart: " . $e->getMessage());
+    }
 }
 
 // Handle purchase
@@ -40,33 +67,36 @@ if (isset($_POST['purchase'])) {
 
     try {
         $mongodb = MongoDBConnection::getInstance();
-        
+
         // Start MySQL transaction
         $conn->begin_transaction();
 
-        // Get cart items first
-        $cartSql = "SELECT propertyID FROM Cart WHERE userID = ?";
+        // Lock cart rows for the current user
+        $cartSql = "SELECT propertyID FROM Cart WHERE userID = ? FOR UPDATE";
         $cartStmt = $conn->prepare($cartSql);
         $cartStmt->bind_param("i", $userID);
         $cartStmt->execute();
         $cartResult = $cartStmt->get_result();
+
         $propertyIDs = [];
-        
         while ($cartItem = $cartResult->fetch_assoc()) {
             $propertyIDs[] = $cartItem['propertyID'];
         }
 
+        if (empty($propertyIDs)) {
+            throw new Exception("No items in cart to purchase.");
+        }
+
         // Update properties to sold in MySQL
         $updateSql = "UPDATE Property 
-                     SET availability = 'sold', transactionDate = CURDATE()
-                     WHERE propertyID IN (" . implode(',', $propertyIDs) . ")";
-        $conn->query($updateSql);
+                      SET availability = 'sold', transactionDate = CURDATE()
+                      WHERE propertyID IN (" . implode(',', $propertyIDs) . ")";
+        if (!$conn->query($updateSql)) {
+            throw new Exception("Failed to update property availability: " . $conn->error);
+        }
 
         // Get the next transaction ID from MongoDB
-        $query = new MongoDB\Driver\Query(
-            [],
-            ['sort' => ['transactionID' => -1], 'limit' => 1]
-        );
+        $query = new MongoDB\Driver\Query([], ['sort' => ['transactionID' => -1], 'limit' => 1]);
         $cursor = $mongodb->getConnection()->executeQuery("realestate_db.transaction", $query);
         $lastTransaction = current($cursor->toArray());
         $nextTransactionID = $lastTransaction ? $lastTransaction->transactionID + 1 : 1;
@@ -82,28 +112,28 @@ if (isset($_POST['purchase'])) {
                 'totalPrice' => (float)$totalPrice
             ]);
         }
-        
+
         $result = $mongodb->getConnection()->executeBulkWrite('realestate_db.transaction', $bulk);
 
-        if ($result->getInsertedCount() === count($propertyIDs)) {
-            // Clear the cart
-            $clearCartSql = "DELETE FROM Cart WHERE userID = ?";
-            $clearCartStmt = $conn->prepare($clearCartSql);
-            $clearCartStmt->bind_param("i", $userID);
-            $clearCartStmt->execute();
-
-            // Commit MySQL transaction
-            $conn->commit();
-
-            header("Location: purchase_success.php?total_price=" . urlencode($totalPrice));
-            exit();
-        } else {
-            throw new Exception("Failed to record all transactions");
+        if ($result->getInsertedCount() !== count($propertyIDs)) {
+            throw new Exception("Failed to record all transactions in MongoDB.");
         }
+
+        // Clear the cart
+        $clearCartSql = "DELETE FROM Cart WHERE userID = ?";
+        $clearCartStmt = $conn->prepare($clearCartSql);
+        $clearCartStmt->bind_param("i", $userID);
+        $clearCartStmt->execute();
+
+        // Commit MySQL transaction
+        $conn->commit();
+
+        header("Location: purchase_success.php?total_price=" . urlencode($totalPrice));
+        exit();
     } catch (Exception $e) {
         // Rollback MySQL transaction on error
         $conn->rollback();
-        die("Error occurred: " . $e->getMessage());
+        die("Error occurred during purchase: " . $e->getMessage());
     }
 }
 ?>

@@ -43,36 +43,46 @@ try {
         }
         $stmtAvailable->close();
 
-        // For sold properties, first get all properties for this agent from MySQL
+        // Fetch sold properties
         $sqlSold = "
-            SELECT p.propertyID, p.flatType, p.resalePrice, l.town, l.streetName, l.block,
-                   s.username AS sellerName, p.sellerID
-            FROM Property p
-            JOIN Location l ON p.locationID = l.locationID
-            JOIN Users s ON p.sellerID = s.userID
-            WHERE p.agentID = ? AND p.availability = 'sold'";
+        SELECT p.propertyID, p.flatType, p.resalePrice, l.town, l.streetName, l.block,
+            s.username AS sellerName, p.sellerID
+        FROM Property p
+        JOIN Location l ON p.locationID = l.locationID
+        JOIN Users s ON p.sellerID = s.userID
+        WHERE p.agentID = ? AND p.availability = 'sold'
+        FOR UPDATE";
 
         $stmtSold = $conn->prepare($sqlSold);
         $stmtSold->bind_param('i', $agentID);
         $stmtSold->execute();
         $resultSold = $stmtSold->get_result();
 
-        // For each sold property
         while ($property = $resultSold->fetch_assoc()) {
-            // Find matching transaction in MongoDB
-            $transaction = $mongodb->findOne('transaction', [
-                'propertyID' => (int)$property['propertyID']
-            ]);
+        // Debug: Log fetched property
+        error_log("Property: " . json_encode($property));
 
-            if ($transaction) {
-                // Get buyer name from Users table
-                $sqlBuyer = "SELECT username AS buyerName FROM Users WHERE userID = ?";
-                $stmtBuyer = $conn->prepare($sqlBuyer);
-                $stmtBuyer->bind_param('i', $transaction['userID']);
-                $stmtBuyer->execute();
-                $buyerResult = $stmtBuyer->get_result();
-                $buyer = $buyerResult->fetch_assoc();
-                $stmtBuyer->close();
+        // Find matching transaction in MongoDB
+        $transaction = $mongodb->findOne('transaction', [
+            'propertyID' => (int)$property['propertyID']
+        ]);
+
+        if ($transaction) {
+            // Debug: Log transaction data
+            error_log("Transaction: " . json_encode($transaction));
+
+            // Get buyer name from Users table
+            $sqlBuyer = "SELECT username AS buyerName FROM Users WHERE userID = ?";
+            $stmtBuyer = $conn->prepare($sqlBuyer);
+            $stmtBuyer->bind_param('i', $transaction['userID']);
+            $stmtBuyer->execute();
+            $buyerResult = $stmtBuyer->get_result();
+            $buyer = $buyerResult->fetch_assoc();
+            $stmtBuyer->close();
+
+            if ($buyer) {
+                // Debug: Log buyer info
+                error_log("Buyer: " . json_encode($buyer));
 
                 // Add the buyer name to property info
                 $soldProperties[] = array_merge($property, [
@@ -80,7 +90,12 @@ try {
                     'transactionDate' => $transaction['transactionDate'],
                     'totalPrice' => $transaction['totalPrice']
                 ]);
+            } else {
+                error_log("No buyer found for userID: " . $transaction['userID']);
             }
+        } else {
+            error_log("No transaction found for propertyID: " . $property['propertyID']);
+        }
         }
         $stmtSold->close();
     }

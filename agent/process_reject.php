@@ -15,24 +15,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$propertyID || !$reason || !$comments) {
         echo "Missing required information.";
-        exit();    }
-
-    // Update the property status and add unapproval details
-    $sql = "UPDATE Property SET approvalStatus = 'rejected', 
-            rejectReason = ?, rejectComments = ? 
-            WHERE propertyID = ?";
-    
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param('ssi', $reason, $comments, $propertyID);
-    
-    if ($stmt->execute()) {
-        header("Location: agent_home.php");
         exit();
-    } else {
-        echo "Error unapproving the listing: " . $conn->error;
     }
 
-    $stmt->close();
+    try {
+        $conn->begin_transaction(); // Start the transaction
+
+        // Lock the property row
+        $lockSql = "SELECT approvalStatus FROM Property WHERE propertyID = ? FOR UPDATE";
+        $lockStmt = $conn->prepare($lockSql);
+        if (!$lockStmt) {
+            throw new Exception("Prepare failed for locking: " . $conn->error);
+        }
+        $lockStmt->bind_param("i", $propertyID);
+        $lockStmt->execute();
+        $lockResult = $lockStmt->get_result();
+        $property = $lockResult->fetch_assoc();
+
+        if (!$property) {
+            throw new Exception("Property not found.");
+        }
+
+        if ($property['approvalStatus'] === 'rejected') {
+            throw new Exception("Property is already rejected.");
+        }
+
+        // Update the property status and add rejection details
+        $updateSql = "UPDATE Property SET approvalStatus = 'rejected', 
+                      rejectReason = ?, rejectComments = ? 
+                      WHERE propertyID = ?";
+        $updateStmt = $conn->prepare($updateSql);
+        if (!$updateStmt) {
+            throw new Exception("Prepare failed for update: " . $conn->error);
+        }
+        $updateStmt->bind_param('ssi', $reason, $comments, $propertyID);
+        $updateStmt->execute();
+
+        // Commit the transaction
+        $conn->commit();
+        header("Location: agent_home.php");
+        exit();
+    } catch (Exception $e) {
+        $conn->rollback(); // Rollback the transaction on error
+        echo "Error rejecting the property: " . $e->getMessage();
+    }
 } else {
     echo "Invalid request method.";
 }
