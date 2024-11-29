@@ -28,8 +28,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['propertyID'])) {
     $propertyID = $_POST['propertyID'];
 
     try {
-        // Check if the property is available
-        $checkAvailability = "SELECT propertyID, availability, flatType, resalePrice FROM Property WHERE propertyID = ?";
+        // Start MySQL transaction
+        $conn->begin_transaction();
+
+        // Lock the property row to check availability
+        $checkAvailability = "SELECT propertyID, availability, flatType, resalePrice FROM Property WHERE propertyID = ? FOR UPDATE";
         $stmt = $conn->prepare($checkAvailability);
         if (!$stmt) {
             throw new Exception("Prepare failed: " . $conn->error);
@@ -41,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['propertyID'])) {
         $result = $stmt->get_result();
         $property = $result->fetch_assoc();
 
-        // Enhanced Debug: Log all fetched property details
+        // Log the fetched property details
         error_log("Property Details: " . json_encode($property));
 
         if ($property && strtolower(trim($property['availability'])) == 'available') {
@@ -55,12 +58,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['propertyID'])) {
             if (!$insertStmt->execute()) {
                 throw new Exception("Execute failed for cart insert: " . $insertStmt->error);
             }
+
+            // Commit the transaction
+            $conn->commit();
+
             $response['success'] = true;
             $response['message'] = 'Property added to cart successfully!';
         } else {
             $response['message'] = 'Property is not available.';
+            $conn->rollback(); // Roll back the transaction if property is not available
         }
     } catch (Exception $e) {
+        $conn->rollback(); // Roll back the transaction in case of an error
         logError("Error adding property to cart: " . $e->getMessage());
         $response['message'] = 'An error occurred while processing your request: ' . $e->getMessage();
     }
