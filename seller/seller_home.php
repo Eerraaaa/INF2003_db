@@ -21,12 +21,6 @@ try {
     die("Could not connect to MongoDB");
 }
 
-// Display success message if set
-if (isset($_SESSION['success_message'])) {
-    echo "<div class='alert alert-success'>" . $_SESSION['success_message'] . "</div>";
-    unset($_SESSION['success_message']);
-}
-
 $sellerID = (int)$_SESSION['userID'];
 
 // Fetch property listings from MySQL
@@ -87,6 +81,121 @@ while ($row = $result->fetch_assoc()) {
 
     $properties[] = $row;
 }
+
+// Organize properties by status
+$pendingListings = [];
+$approvedListings = [];
+$rejectedListings = [];
+
+foreach ($properties as $property) {
+    switch ($property['approvalStatus']) {
+        case 'pending':
+            $pendingListings[] = $property;
+            break;
+        case 'approved':
+            $approvedListings[] = $property;
+            break;
+        case 'rejected':
+            $rejectedListings[] = $property;
+            break;
+    }
+}
+
+function renderListingsTable($listings, $tableTitle) {
+    if (empty($listings)) {
+        return "<div class='alert alert-info'>No {$tableTitle} listings.</div>";
+    }
+    
+    $html = "
+    <div class='card mb-4'>
+        <div class='card-header'>
+            <h3 class='mb-0'>{$tableTitle} Listings</h3>
+        </div>
+        <div class='card-body'>
+            <div class='table-responsive'>
+                <table class='table table-bordered table-striped mb-0'>
+                    <thead>
+                        <tr>
+                            <th>Flat Type</th>
+                            <th>Resale Price</th>
+                            <th>Town</th>
+                            <th>Street Name</th>
+                            <th>Block</th>
+                            <th>Agent Name</th>";
+    
+    // Add rejection columns only for rejected listings
+    if ($tableTitle === 'Rejected') {
+        $html .= "
+                            <th>Rejected Reason</th>
+                            <th>Rejected Comments</th>";
+    }
+    
+    $html .= "
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>";
+    
+    foreach ($listings as $row) {
+        $statusClass = '';
+        if ($tableTitle === 'Approved') {
+            $statusClass = 'table-success';
+        } elseif ($tableTitle === 'Rejected') {
+            $statusClass = 'table-danger';
+        } elseif ($tableTitle === 'Pending') {
+            $statusClass = 'table-warning';
+        }
+
+        $html .= "<tr class='{$statusClass}'>";
+        $html .= "<td>" . htmlspecialchars($row['flatType']) . "</td>";
+        $html .= "<td>$" . number_format($row['resalePrice'], 0, '.', ',') . "</td>";
+        $html .= "<td>" . htmlspecialchars($row['town']) . "</td>";
+        $html .= "<td>" . htmlspecialchars($row['streetName']) . "</td>";
+        $html .= "<td>" . htmlspecialchars($row['block']) . "</td>";
+        $html .= "<td>" . htmlspecialchars($row['agent_name']) . "</td>";
+        
+        // Add rejection details only for rejected listings
+        if ($tableTitle === 'Rejected') {
+            $html .= "<td>" . htmlspecialchars($row['rejectReason']) . "</td>";
+            $html .= "<td>" . htmlspecialchars($row['rejectComments']) . "</td>";
+        }
+        
+        $html .= "<td>";
+        
+        // Action buttons based on status
+        if ($row['approvalStatus'] === 'approved') {
+            if (!$row['is_reviewed']) {
+                $html .= "<a href='create_review.php?agentID={$row['agentID']}&propertyID={$row['propertyID']}' 
+                            class='btn btn-success btn-sm'>Review Agent</a>";
+            } else {
+                $html .= "<span class='text-success'>Reviewed</span>";
+            }
+        } elseif ($row['approvalStatus'] === 'pending') {
+            $html .= "<a href='update_listing.php?id={$row['propertyID']}' 
+                        class='btn btn-primary btn-sm'>Update</a>
+                     <a href='delete_listing.php?id={$row['propertyID']}' 
+                        class='btn btn-danger btn-sm'
+                        onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>";
+        } elseif ($row['approvalStatus'] === 'rejected') {
+            $html .= "<a href='update_listing.php?id={$row['propertyID']}&resubmit=true' 
+                        class='btn btn-warning btn-sm'>Resubmit Listing</a>
+                     <a href='delete_listing.php?id={$row['propertyID']}' 
+                        class='btn btn-danger btn-sm'
+                        onclick='return confirm(\"Are you sure you want to delete this listing?\");'>Delete</a>";
+        }
+        
+        $html .= "</td></tr>";
+    }
+    
+    $html .= "
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>";
+    
+    return $html;
+}
 ?>
 
 <!DOCTYPE html>
@@ -102,77 +211,55 @@ while ($row = $result->fetch_assoc()) {
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
     <style>
-        body {
-            padding-top: 70px;
+        body { 
+            padding-top: 70px; 
         }
-        .status-approved { background-color: #d4edda; }
-        .status-rejected { background-color: #f8d7da; }
+        .card-header { 
+            background-color: #f8f9fa; 
+        }
+        .pending-section .card-header { 
+            border-left: 5px solid #ffc107; 
+        }
+        .approved-section .card-header { 
+            border-left: 5px solid #28a745; 
+        }
+        .rejected-section .card-header { 
+            border-left: 5px solid #dc3545; 
+        }
+        .table td, .table th {
+            vertical-align: middle;
+        }
+        .btn-sm {
+            margin: 2px;
+        }
     </style>
 </head>
 <body>
     <div class="container mt-5">
-        <h2 class="text-center">View My Listings</h2>
-        <?php if (!empty($properties)): ?>
-            <div class="table-responsive">
-                <table class='table table-bordered table-striped'>
-                    <thead>
-                        <tr>
-                            <th>Flat Type</th>
-                            <th>Resale Price</th>
-                            <th>Status</th>
-                            <th>Town</th>
-                            <th>Street Name</th>
-                            <th>Block</th>
-                            <th>Agent Name</th>
-                            <th>Rejected Reason</th>
-                            <th>Rejected Comments</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($properties as $row): 
-                            $statusClass = $row['approvalStatus'] === 'approved' ? 'status-approved' : 
-                                         ($row['approvalStatus'] === 'rejected' ? 'status-rejected' : '');
-                        ?>
-                            <tr class="<?php echo $statusClass; ?>">
-                                <td><?php echo htmlspecialchars($row['flatType']); ?></td>
-                                <td>$<?php echo number_format($row['resalePrice'], 0, '.', ','); ?></td>
-                                <td><?php echo htmlspecialchars($row['approvalStatus']); ?></td>
-                                <td><?php echo htmlspecialchars($row['town']); ?></td>
-                                <td><?php echo htmlspecialchars($row['streetName']); ?></td>
-                                <td><?php echo htmlspecialchars($row['block']); ?></td>
-                                <td><?php echo htmlspecialchars($row['agent_name']); ?></td>
-                                <td><?php echo $row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectReason']) : ''; ?></td>
-                                <td><?php echo $row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : ''; ?></td>
-                                <td>
-                                <?php if ($row['approvalStatus'] === 'approved'): ?>
-                                    <?php if (!$row['is_reviewed']): ?>
-                                        <a href='create_review.php?agentID=<?php echo $row['agentID']; ?>&propertyID=<?php echo $row['propertyID']; ?>' 
-                                        class='btn btn-success btn-sm'>Review Agent</a>
-                                    <?php else: ?>
-                                        <span class='text-success'>Reviewed</span>
-                                    <?php endif; ?>
-                                <?php elseif ($row['approvalStatus'] === 'pending'): ?>
-                                    <a href='update_listing.php?id=<?php echo $row['propertyID']; ?>' 
-                                    class='btn btn-primary btn-sm'>Update</a>
-                                    <a href='delete_listing.php?id=<?php echo $row['propertyID']; ?>' 
-                                    class='btn btn-danger btn-sm'
-                                    onclick='return confirm("Are you sure you want to delete this listing?");'>Delete</a>
-                                <?php elseif ($row['approvalStatus'] === 'rejected'): ?>
-                                    <a href='update_listing.php?id=<?php echo $row['propertyID']; ?>&resubmit=true' 
-                                    class='btn btn-warning btn-sm'>Resubmit Listing</a>
-                                    <a href='delete_listing.php?id=<?php echo $row['propertyID']; ?>' 
-                                    class='btn btn-danger btn-sm'
-                                    onclick='return confirm("Are you sure you want to delete this listing?");'>Delete</a>
-                                <?php endif; ?>
-                            </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php else: ?>
+        <h2 class="text-center mb-4">View My Listings</h2>
+        
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class='alert alert-success'><?php echo $_SESSION['success_message']; ?></div>
+            <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+
+        <?php if (empty($pendingListings) && empty($approvedListings) && empty($rejectedListings)): ?>
             <div class='alert alert-info'>You have no property listings.</div>
+        <?php else: ?>
+            <!-- Pending Listings Section -->
+            <div class="pending-section">
+                <?php echo renderListingsTable($pendingListings, 'Pending'); ?>
+            </div>
+
+            <!-- Approved Listings Section -->
+            <div class="approved-section">
+                <?php echo renderListingsTable($approvedListings, 'Approved'); ?>
+            </div>
+
+            <!-- Rejected Listings Section -->
+            <div class="rejected-section">
+                <?php echo renderListingsTable($rejectedListings, 'Rejected'); ?>
+            </div>
         <?php endif; ?>
     </div>
 </body>
