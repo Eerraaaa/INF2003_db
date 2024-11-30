@@ -9,17 +9,31 @@ include '../lib/connection.php';
 include '../lib/mongodb.php';  // Add MongoDB connection
 include "../inc/sellernav.inc.php";
 
-// Get the agentID from the URL
+// Get the agentID and propertyID from the URL
 $agentID = isset($_GET['agentID']) ? intval($_GET['agentID']) : 0;
+$propertyID = isset($_GET['propertyID']) ? intval($_GET['propertyID']) : 0;
 
-// Validate agentID
-if ($agentID === 0) {
-    echo "Invalid Agent ID";
+// Validate agentID and propertyID
+if ($agentID === 0 || $propertyID === 0) {
+    header("Location: seller_home.php");
     exit();
 }
 
 try {
     $mongodb = MongoDBConnection::getInstance();
+
+    // Check if property has already been reviewed
+    $reviewQuery = new MongoDB\Driver\Query([
+        'propertyID' => $propertyID
+    ]);
+    $cursor = $mongodb->getConnection()->executeQuery("realestate_db.agentReview", $reviewQuery);
+    $existingReviews = iterator_to_array($cursor);
+    
+    if (!empty($existingReviews)) {
+        $_SESSION['error_message'] = "This property has already been reviewed.";
+        header("Location: seller_home.php");
+        exit();
+    }
 
     if ($_SERVER["REQUEST_METHOD"] == "POST") {
         $review = $_POST['review'];
@@ -46,6 +60,7 @@ try {
         $bulk->insert([
             'agentReviewID' => $newReviewID,
             'agentID' => (int)$agentID,
+            'propertyID' => (int)$propertyID,
             'review' => $review,
             'review_date' => date('Y-m-d H:i:s'),
             'rating' => $rating,
@@ -74,13 +89,10 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Create Review</title>
     <link rel="shortcut icon" type="image/x-icon" href="../img/favicon.png">
-    <!-- Bootstrap CSS-->
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css">
-    <!--Font Awesome-->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
-    <!-- Bootstrap JS-->
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js"></script>
     <style>
         body {
@@ -108,7 +120,7 @@ try {
                 <small class="form-text text-muted">Please rate from 1 (lowest) to 5 (highest)</small>
             </div>
             <button type="submit" class="btn btn-success">Submit Review</button>
-            <a href="seller_home.php" class="btn btn-secondary">Cancel</a>
+            <a href="seller_listings.php" class="btn btn-secondary">Cancel</a>
         </form>
     </div>
 </body>

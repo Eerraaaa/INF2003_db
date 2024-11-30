@@ -12,25 +12,27 @@ $search = isset($_GET['search']) ? $_GET['search'] : '';
 $itemsPerPage = 50;
 $offset = ($page - 1) * $itemsPerPage;
 
-$whereClause = ["p.approvalStatus = 'approved'"]; // Only show approved properties
 $params = [];
 
-// Filter by availability
+// Fix the WHERE clauses
 if ($filter === 'sold') {
-    $whereClause[] = "p.availability = 'sold'";
+    $whereClause = "WHERE p.availability = 'sold'";
 } elseif ($filter === 'available') {
-    $whereClause[] = "p.availability = 'available'";
+    $whereClause = "WHERE p.availability = 'available' AND p.approvalStatus = 'approved'";
+} else {
+    // For 'all' properties, we need to explicitly check approval status for available properties
+    $whereClause = "WHERE (p.availability = 'sold' OR (p.availability = 'available' AND p.approvalStatus = 'approved'))";
 }
 
 // Filter by deal category (location)
 if (!empty($dealCategory)) {
-    $whereClause[] = "l.town = ?";
+    $whereClause .= " AND l.town = ?";
     $params[] = $dealCategory;
 }
 
 // Filter by flat type
 if (!empty($flatType) && $flatType !== 'all') {
-    $whereClause[] = "p.flatType = ?";
+    $whereClause .= " AND p.flatType = ?";
     $params[] = $flatType;
 }
 
@@ -56,10 +58,8 @@ if (!empty($search)) {
         $searchClauses[] = "(" . implode(" OR ", $termClauses) . ")";
     }
 
-    $whereClause[] = "(" . implode(" AND ", $searchClauses) . ")";
+    $whereClause .= " AND (" . implode(" AND ", $searchClauses) . ")";
 }
-
-$whereClause = implode(" AND ", $whereClause);
 
 // Sorting
 $orderBy = "ORDER BY ";
@@ -79,17 +79,17 @@ switch ($sortBy) {
         break;
 }
 
-// Modified query to get property and location data from MySQL
-$query = "SELECT p.propertyID, p.flatType, p.agentID,
+// Updated main query to include approvalStatus
+$query = "SELECT p.propertyID, p.flatType, p.agentID, p.approvalStatus,
                  CONCAT(l.town, ' ', l.streetName, ' Block ', l.block) AS locationName,
                  p.resalePrice, p.transactionDate, p.availability
           FROM Property p
           JOIN Location l ON p.locationID = l.locationID
-          WHERE $whereClause
+          $whereClause
           $orderBy
           LIMIT ? OFFSET ?";
 
-$countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID WHERE $whereClause";
+$countQuery = "SELECT COUNT(*) as total FROM Property p JOIN Location l ON p.locationID = l.locationID $whereClause";
 
 $stmt = $conn->prepare($query);
 $countStmt = $conn->prepare($countQuery);
@@ -119,13 +119,16 @@ try {
 
 $properties = [];
 while ($row = $result->fetch_assoc()) {
+    // Additional safety check
+    if ($row['availability'] === 'available' && $row['approvalStatus'] !== 'approved') {
+        continue; // Skip this property
+    }
+
     if ($mongodb) {
         try {
-            // MongoDB agent lookup code remains the same
             $agentInfo = $mongodb->findOne('agent', ['agentID' => (int)$row['agentID']]);
             
             if ($agentInfo) {
-                // User details lookup remains the same
                 $userQuery = "SELECT fname, lname, email, phone_number FROM Users WHERE userID = ?";
                 $userStmt = $conn->prepare($userQuery);
                 $userId = (int)$agentInfo['userID'];
@@ -172,8 +175,12 @@ while ($row = $result->fetch_assoc()) {
         $row['resalePrice'] = 'Price not available';
     }
     
-    // Format the date
-    $row['transactionDate'] = date('Y-m-d', strtotime($row['transactionDate']));
+    // Only format the date if it's not for an available property
+    if ($row['availability'] === 'available') {
+        $row['transactionDate'] = '';
+    } else if ($row['transactionDate']) {
+        $row['transactionDate'] = date('Y-m-d', strtotime($row['transactionDate']));
+    }
     
     $properties[] = $row;
 }

@@ -89,7 +89,27 @@ $conn->close();
 </head>
 <body>
     <div class="container mt-5">
-        <h2>Property Listings</h2>
+        <?php if (isset($_SESSION['success_message'])): ?>
+            <div class="alert alert-success alert-dismissible fade show">
+                <?php 
+                    echo $_SESSION['success_message'];
+                    unset($_SESSION['success_message']);
+                ?>
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            </div>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show">
+                <?php 
+                    echo $_SESSION['error_message'];
+                    unset($_SESSION['error_message']);
+                ?>
+                <button type="button" class="close" data-dismiss="alert">&times;</button>
+            </div>
+        <?php endif; ?>
+
+    <h2>Property Listings</h2>
         <?php if ($errorMsg): ?>
             <div class="alert alert-info"><?php echo htmlspecialchars($errorMsg); ?></div>
         <?php else: ?>
@@ -123,6 +143,7 @@ $conn->close();
                             <td><?php echo htmlspecialchars($row['streetName']); ?></td>
                             <td><?php echo htmlspecialchars($row['block']); ?></td>
                             <td><?php echo htmlspecialchars($row['seller_fname'] . ' ' . $row['seller_lname']); ?></td>
+                            <!-- Replace the Actions column TD in agent_home.php with this: -->
                             <td>
                                 <?php if ($row['approvalStatus'] === 'pending'): ?>
                                     <a href="approve_listing.php?id=<?php echo $row['propertyID']; ?>" 
@@ -136,6 +157,11 @@ $conn->close();
                                     </a>
                                 <?php elseif ($row['approvalStatus'] === 'approved'): ?>
                                     <span class="text-success">Approved</span>
+                                    <a href="agentdelete_listing.php?id=<?php echo $row['propertyID']; ?>" 
+                                    class="btn btn-danger btn-sm"
+                                    onclick="return confirm('Are you sure you want to delete this listing? This action cannot be undone.');">
+                                        Delete Listing
+                                    </a>
                                 <?php elseif ($row['approvalStatus'] === 'rejected'): ?>
                                     <span class="text-danger">Rejected</span>
                                 <?php endif; ?>

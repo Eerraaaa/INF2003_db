@@ -65,11 +65,10 @@ while ($row = $result->fetch_assoc()) {
         $row['agent_name'] = 'Unknown';
     }
 
-    // NOSQL: Check if agent has been reviewed by this seller
+    // Check if this property has been reviewed
     try {
         $reviewQuery = new MongoDB\Driver\Query([
-            'agentID' => (int)$row['agentID'],
-            'userID' => $sellerID
+            'propertyID' => (int)$row['propertyID']
         ]);
         $cursor = $mongodb->getConnection()->executeQuery("realestate_db.agentReview", $reviewQuery);
         $reviews = iterator_to_array($cursor);
@@ -168,7 +167,7 @@ function renderListingsTable($listings, $tableTitle) {
                 $html .= "<a href='create_review.php?agentID={$row['agentID']}&propertyID={$row['propertyID']}' 
                             class='btn btn-success btn-sm'>Review Agent</a>";
             } else {
-                $html .= "<span class='text-success'>Reviewed</span>";
+                $html .= "<span class='badge badge-secondary'>Reviewed</span>";
             }
         } elseif ($row['approvalStatus'] === 'pending') {
             $html .= "<a href='update_listing.php?id={$row['propertyID']}' 
@@ -241,6 +240,11 @@ function renderListingsTable($listings, $tableTitle) {
         <?php if (isset($_SESSION['success_message'])): ?>
             <div class='alert alert-success'><?php echo $_SESSION['success_message']; ?></div>
             <?php unset($_SESSION['success_message']); ?>
+        <?php endif; ?>
+
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class='alert alert-danger'><?php echo $_SESSION['error_message']; ?></div>
+            <?php unset($_SESSION['error_message']); ?>
         <?php endif; ?>
 
         <?php if (empty($pendingListings) && empty($approvedListings) && empty($rejectedListings)): ?>
