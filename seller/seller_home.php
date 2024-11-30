@@ -145,21 +145,27 @@ while ($row = $result->fetch_assoc()) {
                                 <td><?php echo $row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectReason']) : ''; ?></td>
                                 <td><?php echo $row['approvalStatus'] === 'rejected' ? htmlspecialchars($row['rejectComments']) : ''; ?></td>
                                 <td>
-                                    <?php if ($row['approvalStatus'] === 'approved'): ?>
-                                        <?php if (!$row['is_reviewed']): ?>
-                                            <a href='create_review.php?agentID=<?php echo $row['agentID']; ?>&propertyID=<?php echo $row['propertyID']; ?>' 
-                                               class='btn btn-success btn-sm'>Review Agent</a>
-                                        <?php else: ?>
-                                            <span class='text-success'>Reviewed</span>
-                                        <?php endif; ?>
-                                    <?php elseif ($row['approvalStatus'] === 'pending'): ?>
-                                        <a href='update_listing.php?id=<?php echo $row['propertyID']; ?>' 
-                                           class='btn btn-primary btn-sm'>Update</a>
-                                        <a href='delete_listing.php?id=<?php echo $row['propertyID']; ?>' 
-                                           class='btn btn-danger btn-sm'
-                                           onclick='return confirm("Are you sure you want to delete this listing?");'>Delete</a>
+                                <?php if ($row['approvalStatus'] === 'approved'): ?>
+                                    <?php if (!$row['is_reviewed']): ?>
+                                        <a href='create_review.php?agentID=<?php echo $row['agentID']; ?>&propertyID=<?php echo $row['propertyID']; ?>' 
+                                        class='btn btn-success btn-sm'>Review Agent</a>
+                                    <?php else: ?>
+                                        <span class='text-success'>Reviewed</span>
                                     <?php endif; ?>
-                                </td>
+                                <?php elseif ($row['approvalStatus'] === 'pending'): ?>
+                                    <a href='update_listing.php?id=<?php echo $row['propertyID']; ?>' 
+                                    class='btn btn-primary btn-sm'>Update</a>
+                                    <a href='delete_listing.php?id=<?php echo $row['propertyID']; ?>' 
+                                    class='btn btn-danger btn-sm'
+                                    onclick='return confirm("Are you sure you want to delete this listing?");'>Delete</a>
+                                <?php elseif ($row['approvalStatus'] === 'rejected'): ?>
+                                    <a href='update_listing.php?id=<?php echo $row['propertyID']; ?>&resubmit=true' 
+                                    class='btn btn-warning btn-sm'>Resubmit Listing</a>
+                                    <a href='delete_listing.php?id=<?php echo $row['propertyID']; ?>' 
+                                    class='btn btn-danger btn-sm'
+                                    onclick='return confirm("Are you sure you want to delete this listing?");'>Delete</a>
+                                <?php endif; ?>
+                            </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
